@@ -234,6 +234,55 @@ pm2 restart ocr-web
 
 ---
 
+## 🚀 Script maestro — despliegue de todos los módulos
+
+`deploy-all.sh` (incluido en este repo) es el **orquestador maestro** del flujo RCV. Localiza automáticamente los otros 3 módulos en el servidor (sin importar el nombre de carpeta), los instala y los levanta de una sola vez.
+
+### Uso rápido
+
+```bash
+# Clonar todos los módulos en el mismo directorio padre
+mkdir ~/exelixi && cd ~/exelixi
+git clone https://github.com/jsotoexelixitech/ocr-documentos-modulo.git
+git clone https://github.com/jsotoexelixitech/Formulario-modulo.git
+git clone https://github.com/jsotoexelixitech/Emision-Plan-modulo.git
+git clone https://github.com/jsotoexelixitech/Pagos-Poliza-modulo.git
+
+# Ir al módulo OCR y ejecutar el script maestro
+cd ocr-documentos-modulo
+chmod +x deploy-all.sh
+./deploy-all.sh
+```
+
+El script detecta automáticamente los demás módulos como carpetas hermanas.
+
+### Opciones disponibles
+
+```bash
+./deploy-all.sh                  # instalación + build + start (producción)
+./deploy-all.sh --dev            # sin build, usa Vite dev + nodemon
+./deploy-all.sh --skip-install   # omite npm install (ya instalado)
+./deploy-all.sh --restart        # solo reinicia procesos PM2
+./deploy-all.sh --status         # muestra estado actual sin hacer nada
+./deploy-all.sh --stop           # detiene todos los procesos
+```
+
+> Si los módulos están en una ruta diferente, pasa `BASE_DIR`:
+> ```bash
+> BASE_DIR=/opt/exelixi ./deploy-all.sh
+> ```
+
+### Puertos utilizados
+
+| Módulo | Backend | Frontend | Swagger |
+|:-------|:-------:|:--------:|:-------:|
+| OCR        | `4001` | `5181` | `:4001/docs` |
+| Formulario | `4002` | `5182` | `:4002/docs` |
+| Emisión    | `4004` | `5183` | `:4004/docs` |
+| Pagos      | `4003` | `5184` | `:4003/docs` |
+
+---
+
 ## 🗺️ Módulos relacionados
 
 Este módulo forma parte del **flujo de suscripción RCV Exelixi**:

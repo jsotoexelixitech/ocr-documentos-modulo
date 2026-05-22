@@ -18,6 +18,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/) y el p
 - Reintentos automáticos configurables (`GEMINI_MAX_RETRIES`)
 - Integración con el flujo RCV Exelixi (pasos 2–4 downstream)
 
+## [1.1.0] — 2026-05-22
+
+### Added
+- `deploy-all.sh` — script orquestador maestro: detecta, instala, compila y levanta los 4 módulos del flujo RCV con un solo comando
+- Soporte para flags: `--dev`, `--skip-install`, `--restart`, `--status`, `--stop`
+- Health-check automático post-despliegue con resumen de puertos y URLs
+- Detección automática de nombres de carpeta alternativos (nombre local y nombre del repo GitHub)
+- Variable de entorno `BASE_DIR` para rutas personalizadas
+
 ---
 
 > Para versiones futuras sigue el flujo descrito en [CONTRIBUTING.md](CONTRIBUTING.md).
