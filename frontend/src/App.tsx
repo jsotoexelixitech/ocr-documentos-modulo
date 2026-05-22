@@ -1,5 +1,4 @@
 import { useWizardStore } from './store/wizardStore';
-import { publish } from '../../../shared/src/index';
 import { SidebarNav } from './components/SidebarNav';
 import { TopProgressBar } from './components/TopProgressBar';
 import { AuroraBackground } from './components/AuroraBackground';
@@ -25,21 +24,6 @@ export default function App() {
       );
       return;
     }
-    // Publicar evento para que otros módulos activos en el mismo contexto reciban los documentos
-    publish({
-      source: 'ocr',
-      type: 'ocr:complete',
-      payload: {
-        documents: Object.values(documents)
-          .filter(d => d.status === 'done')
-          .map(d => ({
-            docType: d.type as 'cedula' | 'licencia' | 'certificado' | 'rif',
-            fileUrl: d.fileUrl ?? '',
-            fields: d.fields ?? {},
-            ocrProvider: 'gemini',
-          })),
-      },
-    });
     nextStep();
   }
 

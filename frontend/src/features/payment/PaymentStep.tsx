@@ -94,7 +94,8 @@ export function PaymentStep() {
   const [otpResult,    setOtpResult]    = useState<SypagoOtpConfirmResponse | null>(null);
   // otpSubmitted: true despuÃ©s del primer intento de "Solicitar OTP"
   const [otpSubmitted, setOtpSubmitted] = useState(false);
-  const [otpCooldown,  setOtpCooldown]  = useState(0); // segundos restantes para reenvÃ­o
+  const [otpCooldown,  setOtpCooldown]  = useState(0); // segundos restantes para reenvío
+  const confirmInFlight = useRef(false);
 
   // Resetear estados al cambiar mÃ©todo de pago
   useEffect(() => {
