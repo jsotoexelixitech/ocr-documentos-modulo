@@ -47,6 +47,9 @@ coverage/
 # ── TypeScript ───────────────────────────────────────────────────────────────
 *.tsbuildinfo
 
+# ── Uploads / archivos temporales del servidor ───────────────────────────────
+server/uploads/
+
 # ── Misc ─────────────────────────────────────────────────────────────────────
 .cache/
 tmp/
