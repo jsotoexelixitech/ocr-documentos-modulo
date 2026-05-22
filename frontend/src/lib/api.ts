@@ -3,6 +3,19 @@ import type { DocType, OcrResult, DocumentFile } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
 
+// Inyecta el nexus_token (multi-tenant) en cada request al backend del módulo.
+// La clave coincide con la usada por NexusGuard en este módulo.
+api.interceptors.request.use((config) => {
+  const token =
+    sessionStorage.getItem('nexus_access_token_ocr') ||
+    new URLSearchParams(window.location.search).get('nexus_token');
+  if (token) {
+    config.headers = config.headers ?? {};
+    (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export interface UploadResponse {
   success: boolean;
   message: string;

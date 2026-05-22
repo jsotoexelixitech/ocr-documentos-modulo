@@ -17,7 +17,8 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
-const ocrRoutes = require('./routes/ocr');
+const ocrRoutes  = require('./routes/ocr');
+const nexusAuth  = require('./middleware/nexusAuth');
 
 const app = express();
 
@@ -67,10 +68,12 @@ app.get('/api/health', (_req, res) => {
     module: 'ocr',
     provider: process.env.OCR_PROVIDER || 'mock',
     model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
+    nexusAuth: process.env.NEXUS_AUTH_ENABLED === 'true',
   });
 });
 
-app.use('/api', ocrRoutes);
+// Multi-tenant: todas las rutas /api (excepto /api/health arriba) requieren nexus_token
+app.use('/api', nexusAuth, ocrRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error('[modulo-ocr] error:', err);

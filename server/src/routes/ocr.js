@@ -15,12 +15,19 @@ const { validateDocument, runOcr, VALID_DOC_TYPES } = require('../services/docum
 
 const router = express.Router();
 
-// ── Multer storage ────────────────────────────────────────────────────
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads');
+// ── Multer storage (aislado por empresa) ──────────────────────────────
+const UPLOAD_ROOT = path.join(__dirname, '..', '..', 'uploads');
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename:    (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+  destination: (req, _file, cb) => {
+    // Si nexusAuth identificó la empresa, los uploads se aíslan por empresaId.
+    // Si no (modo permissive sin token), van a "shared".
+    const empresaId = req.empresa?.id ? String(req.empresa.id) : 'shared';
+    const dir = path.join(UPLOAD_ROOT, empresaId);
+    require('fs').mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
 });
 
 const fileFilter = (_req, file, cb) => {
@@ -164,6 +171,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     }
 
     const fileName = path.basename(normalized.filePath);
+    const empresaSeg = req.empresa?.id ? String(req.empresa.id) : 'shared';
     return res.status(200).json({
       success: true,
       message: ocrResult.ocrFailed
@@ -175,7 +183,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
         name: req.file.originalname,
         size: req.file.size,
         mimeType: normalized.mimetype,
-        url: `/files/${fileName}`,
+        url: `/files/${empresaSeg}/${fileName}`,
       },
       ocr: ocrResult.fields,
       ocrProvider: ocrResult.provider,
