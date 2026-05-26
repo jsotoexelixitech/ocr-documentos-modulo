@@ -7,8 +7,8 @@ const api = axios.create({ baseURL: '/api' });
 // La clave coincide con la usada por NexusGuard en este módulo.
 api.interceptors.request.use((config) => {
   const token =
-    sessionStorage.getItem('nexus_access_token_ocr') ||
-    new URLSearchParams(window.location.search).get('nexus_token');
+    new URLSearchParams(window.location.search).get('nexus_token') ||
+    sessionStorage.getItem('nexus_access_token_ocr');
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`);
   }
