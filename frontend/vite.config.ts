@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
       allowedHosts: true,
       hmr: tunnel ? { clientPort: 443, protocol: 'wss' } : true,
       proxy: {
+        // OCR propio
+        '/api/documents': { target: 'http://localhost:4001', changeOrigin: true },
+        // Catálogos valrep/INMA se obtienen desde el backend del formulario (4002)
+        '/api/valrep': { target: 'http://localhost:4002', changeOrigin: true },
+        '/api/catalogo': { target: 'http://localhost:4002', changeOrigin: true },
         '/api': { target: 'http://localhost:4001', changeOrigin: true },
         '/files': { target: 'http://localhost:4001', changeOrigin: true },
       },

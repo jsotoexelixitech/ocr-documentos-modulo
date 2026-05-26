@@ -14,6 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const express = require('express');
+const axios = require('axios');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
@@ -73,7 +74,32 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Multi-tenant: todas las rutas /api (excepto /api/health arriba) requieren nexus_token
+// OCR (propio)
 app.use('/api', nexusAuth, ocrRoutes);
+
+// Proxy de catálogos Valrep/INMA al backend de Formulario (4002)
+const VALREP_URL = (process.env.VALREP_API_URL || 'http://localhost:4002').replace(/\/$/, '');
+async function proxyValrep(req, res) {
+  try {
+    const upstream = await axios({
+      method: req.method,
+      url: `${VALREP_URL}${req.originalUrl}`,
+      data: req.body,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
+      },
+      timeout: 15000,
+      validateStatus: () => true,
+    });
+    res.status(upstream.status).json(upstream.data);
+  } catch (err) {
+    console.error('[ocr → valrep proxy]', err.message);
+    res.status(502).json({ success: false, code: 'VALREP_PROXY_ERROR', message: err.message });
+  }
+}
+app.use('/api/valrep', proxyValrep);
+app.use('/api/catalogo', proxyValrep);
 
 app.use((err, _req, res, _next) => {
   console.error('[modulo-ocr] error:', err);
