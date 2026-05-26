@@ -73,11 +73,8 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Multi-tenant: todas las rutas /api (excepto /api/health arriba) requieren nexus_token
-// OCR (propio)
-app.use('/api', nexusAuth, ocrRoutes);
-
 // Proxy de catálogos Valrep/INMA al backend de Formulario (4002)
+// MUST be registered BEFORE the nexusAuth catch-all /api route
 const VALREP_URL = (process.env.VALREP_API_URL || 'http://localhost:4002').replace(/\/$/, '');
 async function proxyValrep(req, res) {
   try {
@@ -100,6 +97,9 @@ async function proxyValrep(req, res) {
 }
 app.use('/api/valrep', proxyValrep);
 app.use('/api/catalogo', proxyValrep);
+
+// Multi-tenant: todas las rutas /api (excepto /api/health y proxies arriba) requieren nexus_token
+app.use('/api', nexusAuth, ocrRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error('[modulo-ocr] error:', err);
