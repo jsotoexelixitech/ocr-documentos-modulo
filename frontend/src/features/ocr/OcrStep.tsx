@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
+import { matchCatalog } from '../../lib/matchCatalog';
+import { useCatalogs } from '../../hooks/useCatalogs';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
@@ -498,7 +500,8 @@ function makeDemoFile(type: DocType): DocumentFile {
 }
 
 export function OcrStep() {
-  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, setDocState } = useWizardStore();
+  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, setDocState, tomador } = useWizardStore();
+  const catalogs = useCatalogs();
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
@@ -509,14 +512,19 @@ export function OcrStep() {
     if (allRequiredDone && !ocrDone) {
       const cedula = documents.cedula.ocr;
       if (cedula) {
+        // El OCR de Gemini devuelve "Soltero(a)" / "Femenino" pero el catálogo
+        // Valrep usa "SOLTERO" / "FEMENINO". matchCatalog hace el puente.
+        const sexoOpts = catalogs.sexos.map(s => ({ value: String(s.label), label: s.label }));
+        const ecOpts   = catalogs.estadosCivil.map(s => ({ value: String(s.label), label: s.label }));
+
         setTomador({
           nombre: cedula.nombre ?? '',
           apellido: cedula.apellido ?? '',
           identificacion: cedula.identificacion ?? '',
           tipoDoc: cedula.tipoDoc ?? 'V',
           fechaNac: cedula.fechaNacimiento ?? '',
-          sexo: cedula.sexo ?? '',
-          estadoCivil: cedula.estadoCivil ?? '',
+          sexo: matchCatalog(cedula.sexo, sexoOpts),
+          estadoCivil: matchCatalog(cedula.estadoCivil, ecOpts),
         });
       }
       const cert = documents.certificado.ocr;
@@ -532,7 +540,43 @@ export function OcrStep() {
       }
       setOcrDone(true);
     }
-  }, [allRequiredDone, ocrDone, documents.cedula.ocr, documents.certificado.ocr, setTomador, setVehicle, setOcrDone]);
+  }, [
+    allRequiredDone,
+    ocrDone,
+    documents.cedula.ocr,
+    documents.certificado.ocr,
+    catalogs.sexos,
+    catalogs.estadosCivil,
+    setTomador,
+    setVehicle,
+    setOcrDone,
+  ]);
+
+  // Re-sincronización tardía: si los catálogos llegan DESPUÉS de aplicar el OCR
+  // normaliza los valores del tomador contra las opciones reales del Valrep.
+  // Solo actúa cuando el valor actual NO existe en las opciones (no reescribe selecciones manuales).
+  useEffect(() => {
+    if (catalogs.loading) return;
+    const updates: { sexo?: string; estadoCivil?: string } = {};
+
+    if (tomador.sexo && catalogs.sexos.length > 0) {
+      const opts = catalogs.sexos.map(s => ({ value: String(s.label), label: s.label }));
+      if (!opts.some(o => o.value === tomador.sexo)) {
+        const matched = matchCatalog(tomador.sexo, opts);
+        if (matched && matched !== tomador.sexo) updates.sexo = matched;
+      }
+    }
+
+    if (tomador.estadoCivil && catalogs.estadosCivil.length > 0) {
+      const opts = catalogs.estadosCivil.map(s => ({ value: String(s.label), label: s.label }));
+      if (!opts.some(o => o.value === tomador.estadoCivil)) {
+        const matched = matchCatalog(tomador.estadoCivil, opts);
+        if (matched && matched !== tomador.estadoCivil) updates.estadoCivil = matched;
+      }
+    }
+
+    if (updates.sexo || updates.estadoCivil) setTomador(updates);
+  }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
   const completedCount = requiredDocs.filter((d) => documents[d].status === 'done').length;
   const completionPct = (completedCount / requiredDocs.length) * 100;
