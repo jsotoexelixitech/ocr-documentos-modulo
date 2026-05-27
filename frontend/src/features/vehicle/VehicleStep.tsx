@@ -33,8 +33,17 @@ function findBestMatch<T>(
   if (!text || !list.length) return undefined;
   const n = normText(text);
   const val = (i: T) => normText(String(i[key] ?? ''));
-  return list.find(i => val(i) === n)
-    ?? list.find(i => val(i).includes(n) || n.includes(val(i)));
+
+  const exact = list.find((i) => val(i) === n);
+  if (exact) return exact;
+
+  const partial = list.filter((i) => {
+    const v = val(i);
+    return v && (n.includes(v) || v.includes(n));
+  });
+  if (!partial.length) return undefined;
+
+  return partial.reduce((best, cur) => (val(cur).length > val(best).length ? cur : best));
 }
 
 interface VehicleErrors {

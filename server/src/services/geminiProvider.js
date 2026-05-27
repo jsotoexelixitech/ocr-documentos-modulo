@@ -133,9 +133,16 @@ function normalizeCertificadoFields(fields) {
     }
   }
 
-  if (fields.modelo) {
-    fields.modelo = modeloRaw.replace(/\s*\/\s*\d{1,2}\s*$/u, '').trim();
-  }
+  const strippedModelo = modeloRaw.replace(/\s*\/\s*\d{1,2}\s*$/u, '').trim();
+  const codeMatch = modeloRaw.match(/\b([A-Za-z]{1,4}\d{2,4}(?:-\d+)?)\b/);
+  const fromLine = codeMatch ? codeMatch[1].replace(/\s*\/\s*\d{1,2}\s*$/u, '').trim() : '';
+
+  const geminiModelo = String(fields.modelo || '').trim();
+  let modelo = strippedModelo || geminiModelo;
+  if (fromLine.length > modelo.length) modelo = fromLine;
+  if (geminiModelo.length > modelo.length) modelo = geminiModelo;
+
+  fields.modelo = modelo ? modelo.toUpperCase() : null;
 
   delete fields.anio;
   return fields;
@@ -253,8 +260,13 @@ const SCHEMAS = {
         type: Type.STRING,
         description: 'Placa del vehiculo, sin espacios ni guiones',
       },
-      marca: { type: Type.STRING, description: 'Marca o fabricante del vehiculo' },
-      modelo: { type: Type.STRING, description: 'Modelo del vehiculo' },
+      marca: { type: Type.STRING, description: 'Marca o fabricante del vehiculo (ej. BERA)' },
+      modelo: {
+        type: Type.STRING,
+        description:
+          'Codigo completo del modelo en la linea bajo la marca (ej. "BR200-2" desde "BR200-2 / 22"). ' +
+          'Incluye letras y numeros; NO devuelvas solo el prefijo "BR" ni repitas la marca.',
+      },
       anio: {
         type: Type.STRING,
         description:
@@ -329,7 +341,11 @@ const PROMPTS = {
     'Devuelve solo los 4 digitos del PRIMER ano (izquierda del slash). ' +
     'NUNCA uses el numero que va despues de "/" en la linea del MODELO (ej. "BR200-2 / 22" — el "22" NO es el ano; ' +
     'no devuelvas 2022 por ese motivo). ' +
-    'El campo modelo debe ser solo la descripcion del modelo SIN ese sufijo "/ XX" al final. ' +
+    'MODELO (MUY IMPORTANTE): lee la linea del codigo de modelo bajo la cedula/marca ' +
+    '(ej. "BR200-2 / 22"). Devuelve el codigo COMPLETO antes del slash final: "BR200-2". ' +
+    'Incluye digitos (BR200, BR200-2, etc.). NUNCA devuelvas solo "BR". ' +
+    'La marca "BERA" va en el campo marca, no en modelo. ' +
+    'Quita solo el sufijo " / XX" al final si aparece (el XX no es parte del modelo). ' +
     'NO OLVIDES extraer el COLOR de la carroceria: aparece etiquetado como "COLOR" o ' +
     '"COLOR DE LA CARROCERIA" en el cuerpo del documento. Devuelvelo capitalizado ' +
     '(ej. "Blanco", "Negro", "Rojo", "Plata"). Si aparecen dos colores con "/", usa el primero.',
