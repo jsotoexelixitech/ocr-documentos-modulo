@@ -85,6 +85,63 @@ function sleep(ms) {
 }
 
 /**
+ * Normaliza año y modelo del certificado INTT.
+ * El año oficial va en la esquina inferior derecha como AAAA/AAAA (ej. 2025/2025),
+ * NO en la línea del modelo (ej. "BR200-2 / 22").
+ */
+function normalizeCertificadoFields(fields) {
+  if (!fields || typeof fields !== 'object') return fields;
+
+  const modeloRaw = String(fields.modelo || '');
+  let yearRaw = fields.anio ?? fields['año'];
+
+  if (yearRaw != null && yearRaw !== '') {
+    let yearStr = String(yearRaw).trim();
+
+    const dualYear = yearStr.match(/^((?:19|20)\d{2})\s*\/\s*((?:19|20)\d{2})$/);
+    if (dualYear) {
+      yearStr = dualYear[1];
+    } else {
+      const embedded = yearStr.match(/(?:19|20)\d{2}/);
+      if (embedded && yearStr.length > 4) {
+        yearStr = embedded[0];
+      }
+    }
+
+    const añoNum = parseInt(yearStr, 10);
+    const suffixMatch = modeloRaw.match(/\/\s*(\d{1,2})\s*$/);
+    if (suffixMatch) {
+      const falseYear = 2000 + parseInt(suffixMatch[1], 10);
+      if (añoNum === falseYear) {
+        console.warn(
+          `[OCR] año ${falseYear} descartado: parece sufijo del modelo "${modeloRaw}"`,
+        );
+        yearRaw = null;
+      }
+    }
+
+    const maxYear = new Date().getFullYear() + 1;
+    if (
+      yearRaw != null &&
+      Number.isFinite(añoNum) &&
+      añoNum >= 1980 &&
+      añoNum <= maxYear
+    ) {
+      fields['año'] = String(añoNum);
+    } else if (yearRaw != null) {
+      fields['año'] = null;
+    }
+  }
+
+  if (fields.modelo) {
+    fields.modelo = modeloRaw.replace(/\s*\/\s*\d{1,2}\s*$/u, '').trim();
+  }
+
+  delete fields.anio;
+  return fields;
+}
+
+/**
  * Campos críticos que validamos por tipo de documento. Si están vacíos en la
  * primera respuesta, intentamos con el siguiente modelo de la cadena.
  */
@@ -200,7 +257,10 @@ const SCHEMAS = {
       modelo: { type: Type.STRING, description: 'Modelo del vehiculo' },
       anio: {
         type: Type.STRING,
-        description: 'Ano del vehiculo (YYYY) en cuatro digitos',
+        description:
+          'Ano del vehiculo en 4 digitos (ej. "2025"). En certificados INTT aparece en la ' +
+          'esquina INFERIOR DERECHA como AAAA/AAAA (ej. "2025/2025"); usa solo el primer ano. ' +
+          'NO uses numeros tras "/" en la linea del modelo (ej. "BR200-2 / 22" — el 22 NO es el ano).',
       },
       serial: {
         type: Type.STRING,
@@ -263,7 +323,13 @@ const PROMPTS = {
   certificado:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: CERTIFICADO DE CIRCULACION (RUST) o TITULO DE PROPIEDAD del vehiculo (INTT). ' +
-    'La placa debe ir sin espacios ni guiones. El ano en cuatro digitos. ' +
+    'La placa debe ir sin espacios ni guiones. ' +
+    'ANO DEL VEHICULO (MUY IMPORTANTE): lee el ano desde la esquina INFERIOR DERECHA del documento, ' +
+    'donde suele aparecer como AAAA/AAAA (ej. "2025/2025"), cerca de la placa y encima del codigo QR grande. ' +
+    'Devuelve solo los 4 digitos del PRIMER ano (izquierda del slash). ' +
+    'NUNCA uses el numero que va despues de "/" en la linea del MODELO (ej. "BR200-2 / 22" — el "22" NO es el ano; ' +
+    'no devuelvas 2022 por ese motivo). ' +
+    'El campo modelo debe ser solo la descripcion del modelo SIN ese sufijo "/ XX" al final. ' +
     'NO OLVIDES extraer el COLOR de la carroceria: aparece etiquetado como "COLOR" o ' +
     '"COLOR DE LA CARROCERIA" en el cuerpo del documento. Devuelvelo capitalizado ' +
     '(ej. "Blanco", "Negro", "Rojo", "Plata"). Si aparecen dos colores con "/", usa el primero.',
@@ -325,10 +391,8 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
         );
       }
 
-      // Normalización campo `anio` -> `año` para compat con frontend
-      if (docType === 'certificado' && parsed && parsed.anio !== undefined) {
-        parsed['año'] = parsed.anio;
-        delete parsed.anio;
+      if (docType === 'certificado' && parsed) {
+        normalizeCertificadoFields(parsed);
       }
 
       return { fields: parsed, elapsedMs, attempt: attempt + 1 };
