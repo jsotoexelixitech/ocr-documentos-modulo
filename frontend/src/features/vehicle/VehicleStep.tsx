@@ -37,9 +37,21 @@ function findBestMatch<T>(
   const exact = list.find((i) => val(i) === n);
   if (exact) return exact;
 
+  const isShortPrefix = /^[A-Z]{1,4}$/.test(n) && !/\d/.test(n);
+  if (isShortPrefix) {
+    const byPrefix = list.filter((i) => val(i).startsWith(n));
+    if (byPrefix.length) {
+      return byPrefix.reduce((best, cur) =>
+        val(cur).length > val(best).length ? cur : best,
+      );
+    }
+  }
+
   const partial = list.filter((i) => {
     const v = val(i);
-    return v && (n.includes(v) || v.includes(n));
+    if (!v) return false;
+    if (v.startsWith(n) || n.startsWith(v)) return true;
+    return n.includes(v) || v.includes(n);
   });
   if (!partial.length) return undefined;
 
@@ -226,6 +238,7 @@ export function VehicleStep() {
     if (!y || y < 1990) return;
     if (!vehicle.marca || !vehicle.modelo) return;
     if (vehicle.cmarca && vehicle.cmodelo) return; // ya tenemos códigos
+    if (ocrCert?.modelo && vehicle.cmarca && !vehicle.cmodelo) return;
 
     let cancelled = false;
     catalogoApi.resolver(y, vehicle.marca, vehicle.modelo)
