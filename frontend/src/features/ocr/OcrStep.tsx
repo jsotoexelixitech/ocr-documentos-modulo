@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
+import { getProductConfig } from '../../lib/product';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { toast } from '../../store/toastStore';
@@ -505,7 +506,13 @@ export function OcrStep() {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
-  const requiredDocs: DocType[] = ['cedula', 'licencia', 'certificado'];
+  // Documentos según el producto activo (RCV pide cédula+licencia+certificado;
+  // Funerario sólo cédula). El resto de los documentos no se muestran.
+  const product = getProductConfig();
+  const requiredDocs: DocType[] = product.docs.required;
+  const visibleDocs = DOCS.filter(
+    (d) => product.docs.required.includes(d.type) || product.docs.optional.includes(d.type),
+  );
   const allRequiredDone = requiredDocs.every((d) => documents[d].status === 'done');
 
   useEffect(() => {
@@ -527,7 +534,9 @@ export function OcrStep() {
           estadoCivil: matchCatalog(cedula.estadoCivil, ecOpts),
         });
       }
-      const cert = documents.certificado.ocr;
+      // El vehículo sólo aplica a productos con vehículo (RCV). Funerario no
+      // lleva certificado de vehículo.
+      const cert = product.hasVehicle ? documents.certificado.ocr : undefined;
       if (cert) {
         setVehicle({
           placa: cert.placa ?? '',
@@ -543,6 +552,7 @@ export function OcrStep() {
   }, [
     allRequiredDone,
     ocrDone,
+    product.hasVehicle,
     documents.cedula.ocr,
     documents.certificado.ocr,
     catalogs.sexos,
@@ -609,7 +619,7 @@ export function OcrStep() {
   async function loadAllDemos() {
     setLoadingDemo(true);
     try {
-      const order: DocType[] = ['cedula', 'licencia', 'certificado', 'rif'];
+      const order: DocType[] = [...product.docs.required, ...product.docs.optional];
       for (const t of order) {
         await loadDemoOne(t);
         await new Promise((r) => setTimeout(r, 200));
@@ -646,7 +656,7 @@ export function OcrStep() {
             </span>
             <div className="pb-1">
               <p className="text-xs text-slate-500 font-semibold leading-tight">
-                de <span className="font-mono text-slate-700">3</span> obligatorios
+                de <span className="font-mono text-slate-700">{requiredDocs.length}</span> obligatorios
               </p>
               <p className="text-[0.65rem] text-slate-400 mt-0.5">documentos verificados</p>
             </div>
@@ -672,7 +682,7 @@ export function OcrStep() {
               ¿No tienes documentos a la mano?
             </p>
             <p className="text-xs text-slate-500 mt-0.5">
-              Carga 4 documentos de muestra para probar el flujo completo en segundos.
+              Carga {visibleDocs.length} {visibleDocs.length === 1 ? 'documento' : 'documentos'} de muestra para probar el flujo completo en segundos.
             </p>
           </div>
         </div>
@@ -708,7 +718,7 @@ export function OcrStep() {
 
       {/* Upload grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-        {DOCS.map((doc) => (
+        {visibleDocs.map((doc) => (
           <UploadDocCard
             key={doc.type}
             config={doc}
@@ -747,7 +757,9 @@ export function OcrStep() {
                 { label: 'Nombre', value: documents.cedula.ocr?.nombre },
                 { label: 'Apellido', value: documents.cedula.ocr?.apellido },
                 { label: 'Documento', value: `${documents.cedula.ocr?.tipoDoc ?? 'V'}-${documents.cedula.ocr?.identificacion ?? ''}` },
-                { label: 'Placa', value: documents.certificado.ocr?.placa },
+                product.hasVehicle
+                  ? { label: 'Placa', value: documents.certificado.ocr?.placa }
+                  : { label: 'Fecha nac.', value: documents.cedula.ocr?.fechaNacimiento },
               ].map(({ label, value }, idx) =>
                 value ? (
                   <div

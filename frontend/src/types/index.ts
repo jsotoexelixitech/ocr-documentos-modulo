@@ -1,5 +1,8 @@
 export type DocType = 'cedula' | 'licencia' | 'certificado' | 'rif';
 
+/** Producto de seguro que se está suscribiendo en el flujo. */
+export type ProductId = 'rcv' | 'funerario';
+
 export type DocStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 
 export interface DocumentFile {
@@ -151,6 +154,8 @@ export interface IssuedPolicy {
 
 export interface WizardState {
   step: number;
+  /** Producto activo del flujo (rcv | funerario). Se propaga entre módulos. */
+  product: ProductId;
   documents: Record<DocType, DocumentState>;
   ocrDone: boolean;
   tomador: TomadorData;

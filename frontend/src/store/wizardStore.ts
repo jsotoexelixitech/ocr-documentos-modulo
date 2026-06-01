@@ -12,6 +12,7 @@ import type {
   PolicyQuote,
   QuoteState,
 } from '../types';
+import { getProductId } from '../lib/product';
 
 const defaultDoc = (): DocumentState => ({ status: 'idle', progress: 0 });
 
@@ -86,6 +87,7 @@ interface WizardActions {
 
 const initialState: WizardState = {
   step: 1,
+  product: getProductId(),
   documents: {
     cedula: defaultDoc(),
     licencia: defaultDoc(),

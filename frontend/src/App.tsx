@@ -6,8 +6,16 @@ import { Toaster } from './components/Toaster';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { Button } from './components/ui/Button';
 import { OcrStep } from './features/ocr/OcrStep';
+import { getProductConfig } from './lib/product';
 import { toast } from './store/toastStore';
 import { ChevronRight, Sparkles, ShieldCheck, HelpCircle, CheckCircle2 } from 'lucide-react';
+
+const DOC_LABELS: Record<string, string> = {
+  cedula: 'cédula',
+  licencia: 'licencia',
+  certificado: 'certificado',
+  rif: 'RIF',
+};
 
 export default function App() {
   const { step, documents, nextStep } = useWizardStore();
@@ -15,12 +23,14 @@ export default function App() {
   const isSuccess = step === 2;
 
   function handleContinuar() {
-    const requiredDocs = ['cedula', 'licencia', 'certificado'] as const;
+    const product = getProductConfig();
+    const requiredDocs = product.docs.required;
     const allDone = requiredDocs.every((d) => documents[d].status === 'done');
     if (!allDone) {
+      const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
       toast.warning(
         'Documentos pendientes',
-        'Procesa cédula, licencia y certificado para continuar.',
+        `Procesa ${lista} para continuar.`,
       );
       return;
     }
