@@ -515,6 +515,16 @@ export function OcrStep() {
   );
   const allRequiredDone = requiredDocs.every((d) => documents[d].status === 'done');
 
+  // La grilla de carga se adapta a la cantidad de documentos del producto y se
+  // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede
+  // simétrica en lugar de alinearse a la izquierda.
+  const docGridClass =
+    visibleDocs.length <= 2
+      ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto'
+      : visibleDocs.length === 3
+        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
+        : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4';
+
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
       const cedula = documents.cedula.ocr;
@@ -717,7 +727,7 @@ export function OcrStep() {
       </div>
 
       {/* Upload grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className={docGridClass}>
         {visibleDocs.map((doc) => (
           <UploadDocCard
             key={doc.type}
