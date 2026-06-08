@@ -51,18 +51,18 @@ async function normalizeImage(filePath, mimetype) {
   const IMG  = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', ...HEIC];
   if (!IMG.includes(mimetype)) return { filePath, mimetype };
 
-  const out = filePath.replace(/(\.[^.]+)?$/, '_norm.jpg');
+  const out = filePath.replace(/(\.[^.]+)?$/, '_norm.webp');
   await sharp(filePath)
     .rotate()
     .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
     .flatten({ background: { r: 255, g: 255, b: 255 } })
     .normalise()
     .sharpen({ sigma: 0.6 })
-    .jpeg({ quality: 90, mozjpeg: true, chromaSubsampling: '4:4:4' })
+    .webp({ quality: 80, effort: 6 })
     .toFile(out);
 
   if (filePath !== out) await fs.unlink(filePath).catch(() => {});
-  return { filePath: out, mimetype: 'image/jpeg' };
+  return { filePath: out, mimetype: 'image/webp' };
 }
 
 /**
