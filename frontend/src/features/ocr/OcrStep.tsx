@@ -513,7 +513,7 @@ export function OcrStep() {
 
   // Producto activo y configuración desde Nexus
   const product = getProductConfig();
-  const { config, loadState } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
+  const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
 
   // Documentos según el producto activo (por defecto) o la configuración de Nexus si existe.
   let requiredDocs: DocType[] = product.docs.required;
