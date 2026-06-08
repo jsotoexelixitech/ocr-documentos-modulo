@@ -501,20 +501,37 @@ function makeDemoFile(type: DocType): DocumentFile {
   };
 }
 
+import { useProductConfig } from '../../hooks/useProductConfig';
+
+const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
+
 export function OcrStep() {
   const { documents, ocrDone, setOcrDone, setTomador, setVehicle, setDocState, tomador } = useWizardStore();
   const catalogs = useCatalogs();
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
-  // Documentos según el producto activo (RCV pide cédula+licencia+certificado;
-  // Funerario sólo cédula). El resto de los documentos no se muestran.
+  // Producto activo y configuración desde Nexus
   const product = getProductConfig();
-  const requiredDocs: DocType[] = product.docs.required;
+  const { config, loadState } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
+
+  // Documentos según el producto activo (por defecto) o la configuración de Nexus si existe.
+  let requiredDocs: DocType[] = product.docs.required;
+  let optionalDocs: DocType[] = product.docs.optional;
+
+  if (config?.documentos) {
+    const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
+    requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as DocType[];
+    optionalDocs = Object.keys(docs).filter(k => docs[k].activo && !docs[k].obligatorio) as DocType[];
+  }
+
   const visibleDocs = DOCS.filter(
-    (d) => product.docs.required.includes(d.type) || product.docs.optional.includes(d.type),
-  );
-  const allRequiredDone = requiredDocs.every((d) => documents[d].status === 'done');
+    (d) => requiredDocs.includes(d.type) || optionalDocs.includes(d.type),
+  ).map((d) => ({
+    ...d,
+    optional: optionalDocs.includes(d.type),
+  }));
+  const allRequiredDone = requiredDocs.length > 0 && requiredDocs.every((d) => documents[d].status === 'done');
 
   // La grilla de carga se adapta a la cantidad de documentos del producto y se
   // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede

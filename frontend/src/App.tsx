@@ -10,6 +10,10 @@ import { getProductConfig } from './lib/product';
 import { toast } from './store/toastStore';
 import { ChevronRight, Sparkles, ShieldCheck, HelpCircle, CheckCircle2 } from 'lucide-react';
 
+import { useProductConfig } from './hooks/useProductConfig';
+
+const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
+
 const DOC_LABELS: Record<string, string> = {
   cedula: 'cédula',
   licencia: 'licencia',
@@ -19,12 +23,19 @@ const DOC_LABELS: Record<string, string> = {
 
 export default function App() {
   const { step, documents, nextStep, goTo } = useWizardStore();
+  const product = getProductConfig();
+  const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
 
   const isSuccess = step === 2;
 
   function handleContinuar() {
-    const product = getProductConfig();
-    const requiredDocs = product.docs.required;
+    let requiredDocs = product.docs.required;
+    
+    if (config?.documentos) {
+      const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
+      requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as typeof product.docs.required;
+    }
+
     const allDone = requiredDocs.every((d) => documents[d].status === 'done');
     if (!allDone) {
       const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
