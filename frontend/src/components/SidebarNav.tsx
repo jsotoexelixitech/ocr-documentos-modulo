@@ -1,19 +1,24 @@
-﻿import {
+import {
   Check, FileText, UserCog, ShieldCheck, CreditCard,
   User, Layers, Wallet, Lock, Shield, Car, Loader2,
 } from 'lucide-react';
 import { useWizardStore } from '../store/wizardStore';
 
-const STEPS = [
-  { n: 1, label: 'Documentos', sub: 'OCR y validación',   Icon: FileText },
-  { n: 2, label: 'Emisión',    sub: 'Datos del cliente',   Icon: UserCog },
-  { n: 3, label: 'Vehículo',   sub: 'Datos del auto',      Icon: Car },
-  { n: 4, label: 'Plan',       sub: 'Cobertura ideal',     Icon: ShieldCheck },
-  { n: 5, label: 'Pago',       sub: 'Checkout final',      Icon: CreditCard },
-];
+import { getProductConfig } from '../lib/product';
 
 export function SidebarNav() {
   const { step, tomador, vehicle, selectedPlan, paymentMethod, quote, quoteState } = useWizardStore();
+  const product = getProductConfig();
+
+  const STEPS = [
+    { n: 1, label: 'Documentos', sub: 'OCR y validación',   Icon: FileText },
+    { n: 2, label: product.hasVehicle ? 'Emisión' : 'Tomador', sub: 'Datos del cliente', Icon: UserCog },
+    product.hasVehicle
+      ? { n: 3, label: 'Vehículo', sub: 'Datos del auto', Icon: Car }
+      : { n: 3, label: 'Asegurado', sub: 'Personas',      Icon: User },
+    { n: 4, label: 'Plan',       sub: 'Cobertura ideal',     Icon: ShieldCheck },
+    { n: 5, label: 'Pago',       sub: 'Checkout final',      Icon: CreditCard },
+  ];
 
   const name = [tomador.nombre, tomador.apellido].filter(Boolean).join(' ');
   const carDescriptor = [vehicle.marca, vehicle.modelo].filter(Boolean).join(' ');

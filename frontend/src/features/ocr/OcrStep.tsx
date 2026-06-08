@@ -431,6 +431,7 @@ function UploadDocCard({
             onClick={(e) => {
               e.stopPropagation();
               setDocState(config.type, { status: 'idle', progress: 0, file: undefined, ocr: undefined });
+              useWizardStore.getState().setOcrDone(false);
               if (inputRef.current) inputRef.current.value = '';
             }}
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"

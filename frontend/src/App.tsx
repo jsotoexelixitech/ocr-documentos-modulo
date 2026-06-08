@@ -18,7 +18,7 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 export default function App() {
-  const { step, documents, nextStep } = useWizardStore();
+  const { step, documents, nextStep, goTo } = useWizardStore();
 
   const isSuccess = step === 2;
 
@@ -90,6 +90,9 @@ export default function App() {
                     <p className="text-slate-500 text-sm text-center max-w-sm">
                       El OCR completó la lectura. Los datos han sido precargados exitosamente.
                     </p>
+                    <Button variant="outline" onClick={() => goTo(1)} className="mt-2">
+                      Volver a escanear
+                    </Button>
                   </div>
                 )}
               </div>
