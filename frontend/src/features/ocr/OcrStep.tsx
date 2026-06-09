@@ -522,9 +522,15 @@ export function OcrStep() {
   let optionalDocs: DocType[] = product.docs.optional;
 
   if (config?.documentos) {
-    const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
-    requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as DocType[];
-    optionalDocs = Object.keys(docs).filter(k => docs[k].activo && !docs[k].obligatorio) as DocType[];
+    if (Array.isArray(config.documentos)) {
+      const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
+      requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as DocType);
+      optionalDocs = docsArr.filter(d => d.activo && !d.obligatorio).map(d => d.key as DocType);
+    } else {
+      const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
+      requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as DocType[];
+      optionalDocs = Object.keys(docs).filter(k => docs[k].activo && !docs[k].obligatorio) as DocType[];
+    }
   }
 
   const visibleDocs = DOCS.filter(
