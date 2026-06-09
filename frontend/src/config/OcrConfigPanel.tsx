@@ -3,9 +3,10 @@ import { useProductConfig } from '../hooks/useProductConfig';
 import { getProductId } from '../lib/product';
 import {
   Settings2, FileText, RotateCcw, Save, CheckCircle2,
-  AlertTriangle, Loader2, Plus, Trash2, ArrowLeftRight, ChevronUp, Sparkles
+  AlertTriangle, Loader2, Plus, Trash2, ArrowLeftRight, ChevronUp, Sparkles, Maximize
 } from 'lucide-react';
 import { AuroraBackground } from '../components/AuroraBackground';
+import { VisualTemplateBuilder, type DocumentRegion } from './VisualTemplateBuilder';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
@@ -14,6 +15,8 @@ interface DocField {
   label: string;
   activo: boolean;
   obligatorio: boolean;
+  sampleImage?: string;
+  regions?: any[];
 }
 
 interface ApiMapEntry {
@@ -53,6 +56,7 @@ export function OcrConfigPanel() {
   const [addingDoc, setAddingDoc] = useState(false);
   const [escaneoLoteBeneficiarios, setEscaneoLoteBeneficiarios] = useState(false);
   const [validarVigencia, setValidarVigencia] = useState(true);
+  const [editingDocTemplate, setEditingDocTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     if (!config) return;
@@ -66,6 +70,8 @@ export function OcrConfigPanel() {
           label: v.label ?? key,
           activo: !!v.activo,
           obligatorio: !!v.obligatorio,
+          sampleImage: v.sampleImage,
+          regions: v.regions,
         })),
       );
     }
@@ -245,9 +251,21 @@ export function OcrConfigPanel() {
                             />
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs text-slate-400 font-mono">{doc.key}</span>
+                              {doc.regions && doc.regions.length > 0 && (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                  {doc.regions.length} zonas IA
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-4 shrink-0 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 w-full md:w-auto overflow-x-auto justify-between md:justify-end">
+                            <button 
+                              onClick={() => setEditingDocTemplate(doc.key)}
+                              className="px-3 py-1.5 bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-1.5"
+                            >
+                              <Maximize size={12} /> Entrenar IA
+                            </button>
+                            <div className="w-px h-8 bg-slate-200" />
                             <div className="flex flex-col items-center gap-1">
                               <span className="text-[9px] font-bold text-slate-400 uppercase">Activo</span>
                               <Toggle on={doc.activo} onChange={v => updateDoc(doc.key, 'activo', v)} />
@@ -337,6 +355,18 @@ export function OcrConfigPanel() {
           )}
         </section>
       </div>
+
+      {editingDocTemplate && (
+        <VisualTemplateBuilder
+          doc={docs.find(d => d.key === editingDocTemplate)!}
+          onClose={() => setEditingDocTemplate(null)}
+          onSave={(sampleImage, regions) => {
+            updateDoc(editingDocTemplate, 'sampleImage', sampleImage);
+            updateDoc(editingDocTemplate, 'regions', regions);
+            setEditingDocTemplate(null);
+          }}
+        />
+      )}
     </div>
   );
 }
