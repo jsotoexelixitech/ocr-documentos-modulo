@@ -45,9 +45,6 @@ function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean
 export function OcrConfigPanel() {
   const producto = getProductId();
 
-  // Lee token de URL si viene del admin
-  const urlToken = new URLSearchParams(window.location.search).get('token');
-
   const { config, loadState, saving, saveError, saveConfig, resetConfig } =
     useProductConfig(EMPRESA_ID, producto, 'ocr');
 
