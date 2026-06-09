@@ -4,11 +4,10 @@ import { getProductId } from '../lib/product';
 import {
   Settings2, FileText, RotateCcw, Save, CheckCircle2,
   AlertTriangle, Loader2, Eye, EyeOff, ShieldCheck,
-  Plus, Trash2, ArrowLeftRight, ChevronDown, ChevronUp,
+  Plus, Trash2, ArrowLeftRight, ChevronUp,
 } from 'lucide-react';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
-const NEXUS_URL = import.meta.env.VITE_NEXUS_API_URL ?? 'http://localhost:3091';
 
 // ── tipos ──────────────────────────────────────────────────────────────
 interface DocField {
@@ -48,7 +47,6 @@ export function OcrConfigPanel() {
 
   // Lee token de URL si viene del admin
   const urlToken = new URLSearchParams(window.location.search).get('token');
-  const NEXUS_KEY = urlToken ?? (import.meta.env.VITE_NEXUS_API_KEY ?? '');
 
   const { config, loadState, saving, saveError, saveConfig, resetConfig } =
     useProductConfig(EMPRESA_ID, producto, 'ocr');
