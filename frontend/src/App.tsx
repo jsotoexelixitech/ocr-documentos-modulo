@@ -38,11 +38,16 @@ export default function App() {
     let requiredDocs = product.docs.required;
     
     if (config?.documentos) {
-      const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
-      requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as typeof product.docs.required;
+      if (Array.isArray(config.documentos)) {
+        const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
+        requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as any);
+      } else {
+        const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
+        requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as any;
+      }
     }
 
-    const allDone = requiredDocs.every((d) => documents[d].status === 'done');
+    const allDone = requiredDocs.every((d) => documents[d]?.status === 'done');
     if (!allDone) {
       const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
       toast.warning(
