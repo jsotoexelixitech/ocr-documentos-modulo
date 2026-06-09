@@ -68,7 +68,7 @@ function UploadDocCard({
   const cameraRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const docState = useWizardStore((s) => s.documents[config.type]);
+  const docState = useWizardStore((s) => s.documents[config.type]) || { status: config.optional ? 'idle' : 'idle', progress: 0 };
   const setDocState = useWizardStore((s) => s.setDocState);
 
   const statusVariant = {
@@ -79,6 +79,8 @@ function UploadDocCard({
     error: 'error',
   } as const;
 
+  const currentStatus = docState.status as keyof typeof statusVariant;
+
   const statusLabel = {
     idle: config.optional ? 'OPCIONAL' : 'PENDIENTE',
     uploading: 'SUBIENDO',
@@ -87,9 +89,9 @@ function UploadDocCard({
     error: 'ERROR',
   };
 
-  const isLoading = docState.status === 'uploading' || docState.status === 'processing';
-  const isDone = docState.status === 'done';
-  const isClickable = docState.status === 'idle' || docState.status === 'error';
+  const isLoading = currentStatus === 'uploading' || currentStatus === 'processing';
+  const isDone = currentStatus === 'done';
+  const isClickable = currentStatus === 'idle' || currentStatus === 'error';
   const Icon = config.Icon;
 
   function handleCardClick(e: React.MouseEvent) {
@@ -255,7 +257,7 @@ function UploadDocCard({
         ${dragOver ? 'dropzone-active' : ''}
         ${isDone
           ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-white cursor-default'
-          : docState.status === 'error'
+          : currentStatus === 'error'
           ? 'border-rose-300 bg-rose-50/30 cursor-pointer hover:border-rose-400 hover:-translate-y-0.5'
           : isLoading
           ? 'border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 cursor-wait'
@@ -267,7 +269,7 @@ function UploadDocCard({
       onDrop={handleDrop}
     >
       {/* Decorative accent corner */}
-      {!isDone && !isLoading && docState.status !== 'error' && (
+      {!isDone && !isLoading && currentStatus !== 'error' && (
         <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br ${config.accent} opacity-[0.08] blur-2xl pointer-events-none`} />
       )}
 
@@ -306,8 +308,8 @@ function UploadDocCard({
         >
           <Icon size={16} strokeWidth={2.2} />
         </div>
-        <Badge variant={statusVariant[docState.status]}>
-          {statusLabel[docState.status]}
+        <Badge variant={statusVariant[currentStatus]}>
+          {statusLabel[currentStatus]}
         </Badge>
       </div>
 
@@ -320,13 +322,13 @@ function UploadDocCard({
       {/* Visual zone */}
       <div className="mx-4 my-3 rounded-xl bg-slate-50 border border-slate-100 min-h-[150px] flex items-center justify-center p-4 relative overflow-hidden">
         {/* Scan line effect when processing */}
-        {docState.status === 'processing' && (
+        {currentStatus === 'processing' && (
           <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent shadow-[0_0_12px_rgba(15, 26, 90,0.6)] pointer-events-none"
             style={{ animation: 'fillTrack 1.4s ease-in-out infinite alternate' }}
           />
         )}
 
-        {docState.status === 'idle' && (
+        {currentStatus === 'idle' && (
           <div className="flex flex-col items-center gap-2.5 text-slate-400 transition-colors">
             {/* Ícono central — desktop y móvil */}
             <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none">
@@ -370,17 +372,17 @@ function UploadDocCard({
 
         {isLoading && (
           <div className="flex flex-col items-center gap-2.5 z-10 pointer-events-none">
-            <CircularProgress progress={docState.progress} size={72} strokeWidth={5}>
+            <CircularProgress progress={docState.progress ?? 0} size={72} strokeWidth={5}>
               <div className="text-center">
                 <p className="text-[1rem] font-black text-indigo-600 leading-none font-mono">
-                  {Math.round(docState.progress)}
+                  {Math.round(docState.progress ?? 0)}
                 </p>
                 <p className="text-[0.55rem] text-slate-400 font-bold mt-0.5 tracking-wider">%</p>
               </div>
             </CircularProgress>
             <div className="flex items-center gap-1.5 text-[0.7rem] font-semibold text-indigo-600">
-              {docState.status === 'processing' && <ScanLine size={11} className="animate-pulse-soft" />}
-              {docState.status === 'uploading' ? 'Subiendo...' : 'Analizando OCR...'}
+              {currentStatus === 'processing' && <ScanLine size={11} className="animate-pulse-soft" />}
+              {currentStatus === 'uploading' ? 'Subiendo...' : 'Analizando OCR...'}
             </div>
           </div>
         )}
@@ -402,7 +404,7 @@ function UploadDocCard({
           </div>
         )}
 
-        {docState.status === 'error' && (
+        {currentStatus === 'error' && (
           <div className="flex flex-col items-center gap-1.5 pointer-events-none">
             <div className="w-14 h-14 rounded-2xl bg-rose-100 grid place-items-center">
               <AlertCircle size={24} className="text-rose-500" strokeWidth={2.2} />
@@ -616,7 +618,7 @@ export function OcrStep() {
     if (updates.sexo || updates.estadoCivil) setTomador(updates);
   }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
-  const completedCount = requiredDocs.filter((d) => documents[d].status === 'done').length;
+  const completedCount = requiredDocs.filter((d) => documents[d]?.status === 'done').length;
   const completionPct = (completedCount / requiredDocs.length) * 100;
 
   /**
