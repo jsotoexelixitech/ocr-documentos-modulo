@@ -545,7 +545,9 @@ export function OcrStep() {
   // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede
   // simétrica en lugar de alinearse a la izquierda.
   const docGridClass =
-    visibleDocs.length <= 2
+    visibleDocs.length === 1
+      ? 'grid grid-cols-1 gap-4 max-w-sm mx-auto'
+      : visibleDocs.length === 2
       ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto'
       : visibleDocs.length === 3
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
