@@ -6,7 +6,7 @@ import {
   AlertTriangle, Loader2, Plus, Trash2, ArrowLeftRight, ChevronUp, Sparkles, Maximize
 } from 'lucide-react';
 import { AuroraBackground } from '../components/AuroraBackground';
-import { VisualTemplateBuilder, type DocumentRegion } from './VisualTemplateBuilder';
+import { VisualTemplateBuilder } from './VisualTemplateBuilder';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
