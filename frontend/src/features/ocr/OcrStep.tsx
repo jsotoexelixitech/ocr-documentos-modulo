@@ -531,7 +531,7 @@ export function OcrStep() {
     ...d,
     optional: optionalDocs.includes(d.type),
   }));
-  const allRequiredDone = requiredDocs.length > 0 && requiredDocs.every((d) => documents[d].status === 'done');
+  const allRequiredDone = requiredDocs.length > 0 && requiredDocs.every((d) => documents[d]?.status === 'done');
 
   // La grilla de carga se adapta a la cantidad de documentos del producto y se
   // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede
