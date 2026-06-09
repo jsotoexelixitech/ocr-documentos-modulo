@@ -21,7 +21,13 @@ const DOC_LABELS: Record<string, string> = {
   rif: 'RIF',
 };
 
+import { OcrConfigPanel } from './config/OcrConfigPanel';
+
 export default function App() {
+  if (window.location.pathname === '/config') {
+    return <OcrConfigPanel />;
+  }
+
   const { step, documents, nextStep, goTo } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
