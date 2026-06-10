@@ -170,7 +170,7 @@ export function OcrConfigPanel() {
             </div>
 
             {loadState === 'loading' && (
-              <div className="flex items-center justify-center gap-3 py-20 text-slate-400">
+              <div className="flex items-center justify-center gap-3 py-20 text-slate-500">
                 <Loader2 size={20} className="animate-spin" /><span className="text-sm">Cargando configuración...</span>
               </div>
             )}
@@ -241,7 +241,7 @@ export function OcrConfigPanel() {
                       {docs.map(doc => (
                         <div key={doc.key} className={`rounded-2xl border p-4 flex flex-col md:flex-row md:items-center gap-4 transition-all duration-300 ${doc.activo ? 'border-slate-200 bg-white shadow-sm hover:shadow-md' : 'border-slate-200/50 bg-slate-50/50 opacity-60'}`}>
                           <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 hidden md:flex">
-                            <FileText size={18} className={doc.activo ? 'text-indigo-500' : 'text-slate-400'} />
+                            <FileText size={18} className={doc.activo ? 'text-indigo-500' : 'text-slate-500'} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <input
@@ -250,7 +250,7 @@ export function OcrConfigPanel() {
                               onChange={e => updateDoc(doc.key, 'label', e.target.value)}
                             />
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-slate-400 font-mono">{doc.key}</span>
+                              <span className="text-xs text-slate-500 font-mono">{doc.key}</span>
                               {doc.regions && doc.regions.length > 0 && (
                                 <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
                                   {doc.regions.length} zonas IA
@@ -267,12 +267,12 @@ export function OcrConfigPanel() {
                             </button>
                             <div className="w-px h-8 bg-slate-200" />
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase">Activo</span>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">Activo</span>
                               <Toggle on={doc.activo} onChange={v => updateDoc(doc.key, 'activo', v)} />
                             </div>
                             <div className="w-px h-8 bg-slate-200" />
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase">Oblig.</span>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">Oblig.</span>
                               <Toggle on={doc.obligatorio} onChange={v => updateDoc(doc.key, 'obligatorio', v)} disabled={!doc.activo} />
                             </div>
                             <div className="w-px h-8 bg-slate-200" />
@@ -292,7 +292,7 @@ export function OcrConfigPanel() {
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Mapeador de campos API</p>
-                        <p className="text-xs text-slate-400 mt-1">Traduce los campos leídos a la API destino.</p>
+                        <p className="text-xs text-slate-500 mt-1">Traduce los campos leídos a la API destino.</p>
                       </div>
                       <button onClick={addMapEntry} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600/10 text-indigo-700 text-xs font-bold hover:bg-indigo-600/20 transition-colors">
                         <Plus size={14} /> Nueva regla
@@ -300,7 +300,7 @@ export function OcrConfigPanel() {
                     </div>
 
                     {apiMap.length === 0 && (
-                      <div className="text-center py-12 text-slate-400 text-sm rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
+                      <div className="text-center py-12 text-slate-500 text-sm rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
                         No hay mapeos.
                       </div>
                     )}

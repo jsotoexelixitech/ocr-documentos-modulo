@@ -123,7 +123,7 @@ export function VisualTemplateBuilder({ doc, onClose, onSave }: Props) {
               Documento: <span className="text-indigo-600 font-bold">{doc.label}</span>
             </p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors">
             <X size={24} />
           </button>
         </div>
@@ -232,7 +232,7 @@ export function VisualTemplateBuilder({ doc, onClose, onSave }: Props) {
                   <p className="text-[10px] text-slate-500 font-mono mt-0.5">Key: {r.internalKey}</p>
                   <button 
                     onClick={() => removeRegion(r.id)}
-                    className="absolute top-3 right-3 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                    className="absolute top-3 right-3 text-slate-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
                   >
                     <Trash2 size={16} />
                   </button>

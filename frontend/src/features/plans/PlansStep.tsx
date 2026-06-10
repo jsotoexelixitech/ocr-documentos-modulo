@@ -193,7 +193,7 @@ export function PlansStep() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
-            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
           </div>
         </div>
 
@@ -207,7 +207,7 @@ export function PlansStep() {
             <div className={`absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg grid place-items-center pointer-events-none transition-all ${
               selectedPlan
                 ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_4px_14px_rgba(46, 109, 191,0.3)]'
-                : 'bg-slate-100 text-slate-400'
+                : 'bg-slate-100 text-slate-500'
             }`}>
               <Check size={15} strokeWidth={2.5} />
             </div>
@@ -229,7 +229,7 @@ export function PlansStep() {
                 </option>
               ))}
             </select>
-            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
           </div>
         </div>
       </div>
@@ -252,7 +252,7 @@ export function PlansStep() {
       ) : (
         <div className="text-center py-14 px-4 rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50/70 to-white">
           <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 grid place-items-center mx-auto mb-3 shadow-sm">
-            <Shield size={22} className="text-slate-400" />
+            <Shield size={22} className="text-slate-500" />
           </div>
           <p className="text-sm text-slate-500 font-medium">
             {category
@@ -332,7 +332,7 @@ function PlanDetailCard({
             {/* Price */}
             <div className="text-left sm:text-right">
               <div className="flex items-end gap-1 sm:justify-end">
-                <span className="text-base sm:text-[1.2rem] font-display font-black text-slate-400 leading-none pb-1 sm:pb-2">$</span>
+                <span className="text-base sm:text-[1.2rem] font-display font-black text-slate-500 leading-none pb-1 sm:pb-2">$</span>
                 {isLoadingQuote && !hasRealQuote ? (
                   <span className="text-4xl sm:text-5xl font-display font-black gradient-text-indigo leading-none tabular-nums inline-flex items-center gap-2">
                     <Loader2 size={28} className="animate-spin opacity-70" />
@@ -347,11 +347,11 @@ function PlanDetailCard({
                     />
                   </span>
                 )}
-                <span className="text-[0.7rem] text-slate-400 font-semibold pb-1.5 sm:hidden">
+                <span className="text-[0.7rem] text-slate-500 font-semibold pb-1.5 sm:hidden">
                   / {billing === 'monthly' ? 'mes' : 'año'}
                 </span>
               </div>
-              <p className="hidden sm:block text-[0.7rem] text-slate-400 font-semibold mt-1">
+              <p className="hidden sm:block text-[0.7rem] text-slate-500 font-semibold mt-1">
                 / {billing === 'monthly' ? 'mes' : 'año'}
               </p>
 
@@ -366,7 +366,7 @@ function PlanDetailCard({
                 </p>
               )}
               {hasRealQuote && ptasa && ptasa > 0 && (
-                <p className="text-[0.6rem] text-slate-400 mt-0.5 tabular-nums">
+                <p className="text-[0.6rem] text-slate-500 mt-0.5 tabular-nums">
                   Tasa de cambio: {ptasa.toFixed(2)} Bs/$
                 </p>
               )}
@@ -406,7 +406,7 @@ function PlanDetailCard({
             <Shield size={11} />
             Plan seleccionado
           </div>
-          <div className="text-[0.62rem] text-slate-400 font-medium">
+          <div className="text-[0.62rem] text-slate-500 font-medium">
             Pagas {billing === 'monthly' ? 'mensualmente' : 'anualmente'}
           </div>
         </div>
@@ -506,7 +506,7 @@ function PrimaCard({
         </div>
 
         {/* Equivalente en Bs */}
-        <p className="text-[0.72rem] font-bold text-indigo-200 tabular-nums mb-3">
+        <p className="text-[0.72rem] font-bold text-indigo-300 tabular-nums mb-3">
           ≈ Bs {fmt(vesMain)} / {isMonthly ? 'mes' : 'año'}
         </p>
 
