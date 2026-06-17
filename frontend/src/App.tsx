@@ -9,6 +9,7 @@ import { OcrStep } from './features/ocr/OcrStep';
 import { getProductConfig } from './lib/product';
 import { toast } from './store/toastStore';
 import { ChevronRight, Sparkles, ShieldCheck, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { useEffect } from 'react';
 
 import { useProductConfig } from './hooks/useProductConfig';
 
@@ -28,9 +29,35 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, nextStep, goTo } = useWizardStore();
+  const { step, documents, nextStep, goTo, setMetadataCanal } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
+
+  // Interceptar SSO Delegation
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = searchParams.get('session_token');
+    
+    if (token) {
+      try {
+        // Extraer payload del JWT (formato base64url)
+        const payloadBase64 = token.split('.')[1];
+        if (payloadBase64) {
+          const payloadStr = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+          const payload = JSON.parse(payloadStr);
+          
+          if (payload.metadata) {
+            setMetadataCanal(payload.metadata);
+          }
+        }
+      } catch (err) {
+        console.error('Error decodificando session_token:', err);
+      } finally {
+        // Limpiar URL por seguridad
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [setMetadataCanal]);
 
   const isSuccess = step === 2;
 
