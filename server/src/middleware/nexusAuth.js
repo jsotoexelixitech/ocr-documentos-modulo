@@ -51,7 +51,7 @@ function extractToken(req) {
   return null;
 }
 
-function nexusAuth(req, res, next) {
+async function nexusAuth(req, res, next) {
   const token = extractToken(req);
   const remoteAddr = req.socket?.remoteAddress ?? req.connection?.remoteAddress ?? '';
 
