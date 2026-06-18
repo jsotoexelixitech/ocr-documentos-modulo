@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
     '/api/catalogo': { target: 'http://localhost:4002', changeOrigin: true },
     '/api': { target: 'http://localhost:4001', changeOrigin: true },
     '/files': { target: 'http://localhost:4001', changeOrigin: true },
+    '/docs': { target: 'http://localhost:4001', changeOrigin: true },
+    '/docs.json': { target: 'http://localhost:4001', changeOrigin: true },
   }
 
   return {
