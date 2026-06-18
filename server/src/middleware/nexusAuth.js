@@ -134,6 +134,41 @@ function nexusAuth(req, res, next) {
     req.empresa = { id: payload.empresaId };
     req.submoduloId = payload.submoduloId;
     req.nexusToken = token;
+
+    // ── Heartbeat: renueva el token en BD y verifica empresa activa ──────────
+    // Se llama al nexus-api en cada petición para deslizar la ventana tokenExpiresAt.
+    // Si empresa.activo = false → 403 inmediato.
+    // Si nexus-api no responde (timeout/red interna) → fail-open (no cortamos flujos).
+    const NEXUS_API = (process.env.NEXUS_API_URL || 'http://192.168.8.120:3092').replace(/\/$/, '');
+    try {
+      const hbRes = await fetch(`${NEXUS_API}/api/access/heartbeat`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (hbRes.ok) {
+        const hb = await hbRes.json();
+        if (hb.active === false) {
+          return res.status(403).json({
+            success: false,
+            code:    'ACCESS_SUSPENDED',
+            message: hb.reason || 'Acceso suspendido. Contacte a su administrador.',
+          });
+        }
+      }
+      // Si nexus-api responde con error HTTP inesperado → fail-open (dejamos pasar)
+    } catch (_hbErr) {
+      // nexus-api no disponible temporalmente (timeout, reinicio, red interna).
+      // Aplicamos fail-open: no cortamos flujos por fallos de infraestructura.
+      // El bloqueo solo ocurre cuando nexus-api confirma explícitamente active:false.
+      console.warn('[nexusAuth] heartbeat no disponible, continuando:', _hbErr.message);
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     return next();
   } catch (err) {
     return res.status(401).json({
