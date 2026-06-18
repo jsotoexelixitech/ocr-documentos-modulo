@@ -19,6 +19,10 @@ Analiza y extrae datos de documentos de identidad (cédula, licencia de conducir
 
 ### Integración con otros módulos
 El objeto \`ocr\` del response se usa para **precargar automáticamente** el formulario en **Módulo Formulario** (paso 2).
+
+### Autenticación (OAuth 2.0)
+Este módulo está protegido. Debe incluir un **Access Token** en la cabecera HTTP \`Authorization: Bearer <token>\`.
+El token se obtiene intercambiando su **API Key** en el endpoint \`/api/access/token\` del servidor central (Nexus API).
       `.trim(),
       contact: {
         name: 'Exelixi / La Mundial de Seguros',
@@ -32,7 +36,20 @@ El objeto \`ocr\` del response se usa para **precargar automáticamente** el for
       { name: 'Documentos', description: 'Subida y análisis OCR de documentos' },
       { name: 'Sistema',    description: 'Estado del servicio' },
     ],
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Ingrese su Access Token temporal (obtenido desde Nexus API vía /api/access/token)',
+        },
+      },
       schemas: {
         OcrResult: {
           type: 'object',
