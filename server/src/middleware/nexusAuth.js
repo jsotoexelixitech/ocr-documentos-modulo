@@ -163,14 +163,10 @@ async function nexusAuth(req, res, next) {
         if (hb.access_token) {
           req.nexusToken = hb.access_token;
           res.setHeader('X-Nexus-Token-Refreshed', hb.access_token);
+          res.setHeader('Access-Control-Expose-Headers', 'X-Nexus-Token-Refreshed');
         }
       }
-      // Si nexus-api responde con error HTTP inesperado → fail-open (dejamos pasar)
-    } catch (_hbErr) {
-      // nexus-api no disponible temporalmente (timeout, reinicio, red interna).
-      // Aplicamos fail-open: no cortamos flujos por fallos de infraestructura.
-      // El bloqueo solo ocurre cuando nexus-api confirma explícitamente active:false.
-      console.warn('[nexusAuth] heartbeat no disponible, continuando:', _hbErr.message);
+    } catch { /* fail-open: no cortar flujos por fallo temporal de nexus-api */
     }
     // ────────────────────────────────────────────────────────────────────────
 
