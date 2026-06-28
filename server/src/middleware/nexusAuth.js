@@ -159,6 +159,11 @@ async function nexusAuth(req, res, next) {
             message: hb.reason || 'Acceso suspendido. Contacte a su administrador.',
           });
         }
+        // Token renovado: actualizar en req para que rutas aguas abajo lo lean
+        if (hb.access_token) {
+          req.nexusToken = hb.access_token;
+          res.setHeader('X-Nexus-Token-Refreshed', hb.access_token);
+        }
       }
       // Si nexus-api responde con error HTTP inesperado → fail-open (dejamos pasar)
     } catch (_hbErr) {
