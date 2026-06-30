@@ -19,22 +19,43 @@
 
 import { useWizardStore } from '../store/wizardStore';
 
-// ── Configuración por puerto ────────────────────────────────────────────────
+// ── Configuración por puerto (dev local) o hostname (HTTPS sslip.io) ───────
 const PORT_TO_ORDER: Record<string, number> = {
   '5181': 1, // OCR
   '5182': 2, // Formulario
   '5183': 3, // Emisión
-  '5180': 4, // Pagos
+  '5184': 4, // Pagos
+  '5180': 4, // Pagos (legacy)
 };
 
 const PORT_TO_TOKEN_KEY: Record<string, string> = {
   '5181': 'nexus_access_token_ocr',
   '5182': 'nexus_access_token_formulario',
   '5183': 'nexus_access_token_emision',
+  '5184': 'nexus_access_token_pagos',
   '5180': 'nexus_access_token_pagos',
 };
 
+/** srv001 HTTPS — sin puerto en URL (443); detectar por hostname */
+const HOST_TO_ORDER: Record<string, number> = {
+  'cierrelmds.exelixitech.com': 1,
+  'ocr.200-75-131-138.sslip.io': 1,
+  'form.200-75-131-138.sslip.io': 2,
+  'emision.200-75-131-138.sslip.io': 3,
+  'pagos.200-75-131-138.sslip.io': 4,
+};
+
+const HOST_TO_TOKEN_KEY: Record<string, string> = {
+  'cierrelmds.exelixitech.com': 'nexus_access_token_ocr',
+  'ocr.200-75-131-138.sslip.io': 'nexus_access_token_ocr',
+  'form.200-75-131-138.sslip.io': 'nexus_access_token_formulario',
+  'emision.200-75-131-138.sslip.io': 'nexus_access_token_emision',
+  'pagos.200-75-131-138.sslip.io': 'nexus_access_token_pagos',
+};
+
 function getModuleTokenKey(): string {
+  const host = window.location.hostname;
+  if (HOST_TO_TOKEN_KEY[host]) return HOST_TO_TOKEN_KEY[host];
   return PORT_TO_TOKEN_KEY[window.location.port ?? ''] ?? 'nexus_access_token';
 }
 
@@ -55,6 +76,13 @@ function getNexusTokenFromUrl(): string | null {
 }
 
 function moduleOrder(): number | null {
+  const envOrder = import.meta.env.VITE_BRIDGE_MODULE_ORDER;
+  if (envOrder) {
+    const n = Number(envOrder);
+    return Number.isFinite(n) ? n : null;
+  }
+  const host = window.location.hostname;
+  if (HOST_TO_ORDER[host]) return HOST_TO_ORDER[host];
   const port = window.location.port || '';
   return PORT_TO_ORDER[port] ?? null;
 }
