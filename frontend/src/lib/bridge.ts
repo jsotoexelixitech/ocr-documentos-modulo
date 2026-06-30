@@ -36,9 +36,23 @@ const PORT_TO_TOKEN_KEY: Record<string, string> = {
   '5180': 'nexus_access_token_pagos',
 };
 
-/** srv001 HTTPS — sin puerto en URL (443); detectar por hostname */
+/** cierrelmds HTTPS — un dominio, varios prefijos Apache */
+const PATH_PREFIX_TO_ORDER: [string, number][] = [
+  ['/formulario', 2],
+  ['/emision', 3],
+  ['/pagos', 4],
+  ['/ocr', 1],
+];
+
+const PATH_PREFIX_TO_TOKEN_KEY: [string, string][] = [
+  ['/formulario', 'nexus_access_token_formulario'],
+  ['/emision', 'nexus_access_token_emision'],
+  ['/pagos', 'nexus_access_token_pagos'],
+  ['/ocr', 'nexus_access_token_ocr'],
+];
+
+/** srv001 HTTPS sslip.io — subdominio por módulo */
 const HOST_TO_ORDER: Record<string, number> = {
-  'cierrelmds.exelixitech.com': 1,
   'ocr.200-75-131-138.sslip.io': 1,
   'form.200-75-131-138.sslip.io': 2,
   'emision.200-75-131-138.sslip.io': 3,
@@ -46,14 +60,23 @@ const HOST_TO_ORDER: Record<string, number> = {
 };
 
 const HOST_TO_TOKEN_KEY: Record<string, string> = {
-  'cierrelmds.exelixitech.com': 'nexus_access_token_ocr',
   'ocr.200-75-131-138.sslip.io': 'nexus_access_token_ocr',
   'form.200-75-131-138.sslip.io': 'nexus_access_token_formulario',
   'emision.200-75-131-138.sslip.io': 'nexus_access_token_emision',
   'pagos.200-75-131-138.sslip.io': 'nexus_access_token_pagos',
 };
 
+function matchPathPrefix<T>(rules: [string, T][]): T | null {
+  const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+  for (const [prefix, value] of rules) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return value;
+  }
+  return null;
+}
+
 function getModuleTokenKey(): string {
+  const fromPath = matchPathPrefix(PATH_PREFIX_TO_TOKEN_KEY);
+  if (fromPath) return fromPath;
   const host = window.location.hostname;
   if (HOST_TO_TOKEN_KEY[host]) return HOST_TO_TOKEN_KEY[host];
   return PORT_TO_TOKEN_KEY[window.location.port ?? ''] ?? 'nexus_access_token';
@@ -81,6 +104,8 @@ function moduleOrder(): number | null {
     const n = Number(envOrder);
     return Number.isFinite(n) ? n : null;
   }
+  const fromPath = matchPathPrefix(PATH_PREFIX_TO_ORDER);
+  if (fromPath !== null) return fromPath;
   const host = window.location.hostname;
   if (HOST_TO_ORDER[host]) return HOST_TO_ORDER[host];
   const port = window.location.port || '';
