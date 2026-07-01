@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Upload, CheckCircle2, AlertCircle, RotateCcw, Eye,
   IdCard, Car, FileText, Building2, Sparkles, ScanLine,
-  Wand2, Download, MousePointerClick, Camera, Images,
+  MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
@@ -456,61 +456,15 @@ function UploadDocCard({
  * Los datos son coherentes entre si (mismo titular, mismo vehiculo) para
  * que el resto del wizard sea creible.
  */
-const DEMO_FILES: Record<DocType, { name: string; mimeType: string; url: string }> = {
-  cedula: { name: 'cedula-demo.svg', mimeType: 'image/svg+xml', url: '/samples/cedula-demo.svg' },
-  licencia: { name: 'licencia-demo.svg', mimeType: 'image/svg+xml', url: '/samples/licencia-demo.svg' },
-  certificado: { name: 'certificado-demo.svg', mimeType: 'image/svg+xml', url: '/samples/certificado-demo.svg' },
-  rif: { name: 'rif-demo.svg', mimeType: 'image/svg+xml', url: '/samples/rif-demo.svg' },
-};
 
-const DEMO_OCR: Record<DocType, Record<string, string>> = {
-  cedula: {
-    nombre: 'Maria',
-    apellido: 'Fernandez',
-    identificacion: '18456329',
-    tipoDoc: 'V',
-    fechaNacimiento: '1990-04-15',
-    sexo: 'Femenino',
-    estadoCivil: 'Soltero(a)',
-  },
-  licencia: {
-    numeroLicencia: 'LIC-0234567',
-    categoria: '5ta',
-    vencimiento: '2027-06-30',
-  },
-  certificado: {
-    placa: 'AE123KT',
-    marca: 'Toyota',
-    modelo: 'Corolla',
-    año: '2020',
-    serial: 'VIN20TOYCO2020001',
-    color: 'Plateado',
-  },
-  rif: {
-    rif: 'V-18456329-0',
-    razonSocial: 'Maria Fernandez',
-  },
-};
-
-function makeDemoFile(type: DocType): DocumentFile {
-  const meta = DEMO_FILES[type];
-  return {
-    id: `demo-${type}-${Date.now()}`,
-    name: meta.name,
-    size: 0,
-    mimeType: meta.mimeType,
-    url: meta.url,
-  };
-}
 
 import { useProductConfig } from '../../hooks/useProductConfig';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 export function OcrStep() {
-  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, setDocState, tomador } = useWizardStore();
+  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador } = useWizardStore();
   const catalogs = useCatalogs();
-  const [loadingDemo, setLoadingDemo] = useState(false);
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
   // Producto activo y configuración desde Nexus
@@ -628,52 +582,6 @@ export function OcrStep() {
 
   const completedCount = requiredDocs.filter((d) => documents[d]?.status === 'done').length;
   const completionPct = (completedCount / requiredDocs.length) * 100;
-
-  /**
-   * Carga un documento demo con simulacion visual (uploading -> processing -> done).
-   * NO realiza ninguna llamada de red: usa DEMO_OCR como fuente de datos.
-   * Esto garantiza que los demos funcionen siempre, incluso si Gemini esta caido
-   * o sin cuota.
-   */
-  async function loadDemoOne(type: DocType) {
-    setDocState(type, { status: 'uploading', progress: 0, error: undefined });
-
-    for (let p = 10; p <= 100; p += 18) {
-      await new Promise((r) => setTimeout(r, 60));
-      setDocState(type, { progress: p });
-    }
-
-    setDocState(type, { status: 'processing', progress: 100 });
-    await new Promise((r) => setTimeout(r, 600));
-
-    setDocState(type, {
-      status: 'done',
-      progress: 100,
-      file: makeDemoFile(type),
-      ocr: DEMO_OCR[type],
-    });
-  }
-
-  async function loadAllDemos() {
-    setLoadingDemo(true);
-    try {
-      const order: DocType[] = [...product.docs.required, ...product.docs.optional];
-      for (const t of order) {
-        await loadDemoOne(t);
-        await new Promise((r) => setTimeout(r, 200));
-      }
-      toast.success(
-        'Documentos demo cargados',
-        'Datos pre-cargados para que pruebes el flujo completo. Puedes editarlos en el siguiente paso.',
-        4500
-      );
-    } catch (err) {
-      console.error(err);
-      toast.error('Error cargando demos', 'No se pudieron cargar los documentos de prueba.', 5000);
-    } finally {
-      setLoadingDemo(false);
-    }
-  }
 
   return (
     <div className="animate-fade-in">
