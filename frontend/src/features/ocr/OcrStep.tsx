@@ -709,50 +709,7 @@ export function OcrStep() {
         </div>
       </div>
 
-      {/* Demo loader bar */}
-      <div className="mb-5 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/70 via-violet-50/40 to-fuchsia-50/40 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center flex-shrink-0 shadow-[0_4px_14px_rgba(15, 26, 90,0.3)]">
-            <Wand2 size={16} className="text-white" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-display font-bold text-slate-900 text-sm leading-tight">
-              ¿No tienes documentos a la mano?
-            </p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Carga {visibleDocs.length} {visibleDocs.length === 1 ? 'documento' : 'documentos'} de muestra para probar el flujo completo en segundos.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <a
-            href="/samples/cedula-demo.svg"
-            download
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-indigo-600 hover:bg-white/70 transition-colors"
-          >
-            <Download size={12} />
-            Descargar uno
-          </a>
-          <button
-            type="button"
-            onClick={loadAllDemos}
-            disabled={loadingDemo}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white text-xs font-bold shadow-[0_8px_22px_rgba(15, 26, 90,0.32)] hover:shadow-[0_12px_28px_rgba(15, 26, 90,0.42)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:hover:transform-none disabled:cursor-not-allowed"
-          >
-            {loadingDemo ? (
-              <>
-                <span className="inline-block w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin-slow" />
-                Cargando demos...
-              </>
-            ) : (
-              <>
-                <Sparkles size={13} />
-                Cargar documentos demo
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      {/* Demo loader bar — oculto en producción */}
 
       {/* Upload grid */}
       <div className={docGridClass}>

@@ -149,7 +149,7 @@ export function EmissionStep() {
     if (req(tomador.telefono)) {
       e.telefono = 'El teléfono es obligatorio';
     } else if (digs(tomador.telefono) !== 11) {
-      e.telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567)';
+      e.telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567 · 04221234567)';
     }
 
     if (req(tomador.email)) {
@@ -212,7 +212,7 @@ export function EmissionStep() {
       if (req(pagador.telefono)) {
         e.pag_telefono = 'El teléfono del pagador es obligatorio';
       } else if (digs(pagador.telefono) !== 11) {
-        e.pag_telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567)';
+        e.pag_telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567 · 04221234567)';
       }
 
       const pagEmail = (pagador.email ?? '').trim();
@@ -290,7 +290,7 @@ export function EmissionStep() {
       </Field>
     ),
     telefono: (
-      <Field label="Teléfono *" error={errors.telefono} hint="Exactamente 11 dígitos, ej. 04121234567">
+      <Field label="Teléfono *" error={errors.telefono} hint="11 dígitos · Movilnet 0412/0416 · Movistar 0414/0424 · Digitel 0412/0422">
         <Input
           value={tomador.telefono}
           onChange={(e) => setTomador({ telefono: formatTelefono(e.target.value) })}
@@ -494,7 +494,7 @@ export function EmissionStep() {
                   onIdentificacionChange={(v) => setPagador({ identificacion: v })}
                 />
               </Field>
-              <Field label="Teléfono del pagador *" error={errors.pag_telefono} hint="Solo dígitos, ej. 04121234567">
+              <Field label="Teléfono del pagador *" error={errors.pag_telefono} hint="11 dígitos · 0412/0416/0422/0424/0426">
                 <Input
                   value={pagador.telefono ?? ''}
                   onChange={(e) => setPagador({ telefono: formatTelefono(e.target.value) })}

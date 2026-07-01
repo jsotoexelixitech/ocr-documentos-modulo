@@ -155,7 +155,7 @@ export function PaymentStep() {
   // ── Validaciones pago móvil (Meritop) ─────────────────────────────
   const movErrors = {
     banco    : !bankCode                                          ? 'Selecciona el banco'                : '',
-    telefono : telefonoPago.length > 0 && !/^04\d{9}$/.test(telefonoPago) ? 'Formato inválido: 04XXXXXXXXX' : !telefonoPago ? 'El teléfono es obligatorio' : '',
+    telefono : telefonoPago.length > 0 && !/^04\d{9}$/.test(telefonoPago) ? 'Formato inválido (ej. 04121234567 · 04221234567)' : !telefonoPago ? 'El teléfono es obligatorio' : '',
     monto    : !montoPagoM                                        ? 'El monto es obligatorio'            : isNaN(parseFloat(montoPagoM)) || parseFloat(montoPagoM) <= 0 ? 'Monto inválido' : '',
     fecha    : !fechaPagoM                                        ? 'La fecha es obligatoria'            : '',
     hora     : !horaPagoM                                        ? 'La hora es obligatoria'             : '',
@@ -205,7 +205,7 @@ export function PaymentStep() {
     bank   : !otpBankCode ? 'Selecciona el banco' : '',
 
     phone  : otpPhone.length > 0 && !/^04\d{9}$/.test(otpPhone)
-               ? 'Formato inválido: 04XXXXXXXXX'
+               ? 'Formato inválido (ej. 04141234567 · 04221234567)'
                : !otpPhone ? 'Teléfono obligatorio' : '',
 
     amount : otpAmount.length > 0 && (isNaN(parseFloat(otpAmount)) || parseFloat(otpAmount) <= 0)
@@ -414,11 +414,11 @@ export function PaymentStep() {
                 />
               </Field>
 
-              <Field label="Teléfono de origen" hint="Número que realizó el pago" error={movErrors.telefono}>
+              <Field label="Teléfono de origen" hint="0412/0416 Movilnet · 0414/0424 Movistar · 0412/0422 Digitel" error={movErrors.telefono}>
                 <Input
                   value={telefonoPago}
                   onChange={(e) => { setTelPago(e.target.value.replace(/\D/g, '').slice(0, 11)); setVerifyStatus('idle'); }}
-                  placeholder="04121234567"
+                  placeholder="04221234567"
                   type="tel"
                   inputMode="numeric"
                   maxLength={11}
@@ -622,12 +622,12 @@ export function PaymentStep() {
                     />
                   </Field>
 
-                  <Field label="Teléfono del pagador" hint="04XX · número en el banco"
+                  <Field label="Teléfono del pagador" hint="0412/0416 Movilnet · 0414/0424 Movistar · 0412/0422 Digitel"
                     error={otpErrors.phone}>
                     <Input
                       value={otpPhone}
                       onChange={(e) => setOtpPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                      placeholder="04141234567"
+                      placeholder="04221234567"
                       type="tel"
                       inputMode="numeric"
                       maxLength={11}
