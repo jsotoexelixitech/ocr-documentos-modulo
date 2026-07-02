@@ -5,6 +5,7 @@ import {
 import { useWizardStore } from '../store/wizardStore';
 
 import { getProductConfig } from '../lib/product';
+import { publicAsset } from '../lib/app-base';
 
 export function SidebarNav() {
   const { step, tomador, vehicle, selectedPlan, paymentMethod, quote, quoteState } = useWizardStore();
@@ -57,7 +58,7 @@ export function SidebarNav() {
       {/* Brand */}
       <div className="flex items-center justify-center mb-8 px-2">
         <img
-          src="/logo-lamundial-sidebar.png"
+          src={publicAsset('logo-lamundial-sidebar.png')}
           alt="La Mundial de Seguros"
           className="w-full max-w-[210px] object-contain"
           draggable={false}
