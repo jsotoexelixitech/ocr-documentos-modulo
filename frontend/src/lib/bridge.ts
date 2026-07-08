@@ -245,6 +245,10 @@ function makeBridge(): BridgeAPI {
       );
       if (r?.data?.data) {
         applyHydration(r.data.data);
+        const sessionProduct = r.data.data.product;
+        if (sessionProduct === 'rcv' || sessionProduct === 'funerario') {
+          try { sessionStorage.setItem('exelixi_product', sessionProduct); } catch { /* ignore */ }
+        }
         const urlToken = getNexusTokenFromUrl();
         const sessionToken = r.data.data.nexus_token;
         if (!urlToken && sessionToken && typeof sessionToken === 'string') {
