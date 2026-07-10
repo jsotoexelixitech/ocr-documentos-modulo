@@ -8,13 +8,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses = {
   primary:
-    'bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-[0_8px_22px_rgba(15, 26, 90,0.35)] hover:shadow-[0_12px_28px_rgba(15, 26, 90,0.45)] hover:-translate-y-0.5 active:translate-y-0',
+    'bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-[0_10px_26px_-6px_rgba(15,26,90,0.45)] hover:shadow-[0_16px_34px_-8px_rgba(15,26,90,0.55)] hover:-translate-y-0.5 active:translate-y-0 ring-1 ring-inset ring-white/10',
   secondary:
-    'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/40',
+    'bg-white text-slate-700 border border-slate-200 shadow-[0_2px_8px_-4px_rgba(15,26,90,0.15)] hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/40 hover:-translate-y-0.5',
   ghost:
     'bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700',
   success:
-    'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-[0_8px_22px_rgba(16,185,129,0.35)] hover:-translate-y-0.5',
+    'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-[0_10px_26px_-6px_rgba(16,185,129,0.45)] hover:-translate-y-0.5 ring-1 ring-inset ring-white/10',
 };
 
 const sizeClasses = {

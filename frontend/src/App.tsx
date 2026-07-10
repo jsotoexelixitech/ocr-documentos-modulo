@@ -8,7 +8,8 @@ import { Button } from './components/ui/Button';
 import { OcrStep } from './features/ocr/OcrStep';
 import { getProductConfig } from './lib/product';
 import { toast } from './store/toastStore';
-import { ChevronRight, Sparkles, ShieldCheck, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { publicAsset } from './lib/app-base';
+import { ChevronRight, Sparkles, ShieldCheck, HelpCircle, CheckCircle2, ScanLine, Lock } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { useProductConfig } from './hooks/useProductConfig';
@@ -95,8 +96,42 @@ export default function App() {
         <TopProgressBar />
       </div>
 
+      {/* Barra de marca (desktop) */}
+      <header className="hidden lg:block sticky top-0 z-40">
+        <div className="glass-light border-b border-white/50">
+          <div className="max-w-5xl mx-auto px-10 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
+                <img
+                  src={publicAsset('logo-isotipo-transparente.png')}
+                  alt="La Mundial de Seguros"
+                  className="w-6 h-auto"
+                  draggable={false}
+                />
+              </div>
+              <div className="leading-tight">
+                <p className="font-wordmark text-lg text-[#091133]">
+                  La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
+                </p>
+                <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-slate-400">
+                  Suscripción digital
+                </p>
+              </div>
+            </div>
+
+            <a
+              href="mailto:soporte@lamundialdeseguros.com?subject=Suscripci%C3%B3n%20RCV%20-%20Soporte"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/70 ring-1 ring-slate-200/70 text-slate-600 hover:text-indigo-600 hover:-translate-y-0.5 text-xs font-bold transition-all"
+            >
+              <HelpCircle size={13} />
+              ¿Necesitas ayuda?
+            </a>
+          </div>
+        </div>
+      </header>
+
       <div>
-        <main className="flex-1 min-h-screen pt-[72px] lg:pt-10 px-4 sm:px-6 lg:px-10 pb-32 lg:pb-12">
+        <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-32 lg:pb-12">
           <div className="max-w-5xl mx-auto">
             <TopStepper />
 
@@ -114,13 +149,30 @@ export default function App() {
                     <p className="text-slate-500 text-sm mt-2 max-w-xl leading-relaxed">
                       Los analizaremos con OCR y precargaremos tus datos automáticamente.
                     </p>
+
+                    {/* Chips de confianza */}
+                    <div className="mt-4 flex items-center gap-2 flex-wrap">
+                      <span className="chip">
+                        <ScanLine size={12} className="text-indigo-500" />
+                        Lectura OCR con IA
+                      </span>
+                      <span className="chip">
+                        <Lock size={12} className="text-emerald-500" />
+                        Datos cifrados
+                      </span>
+                      <span className="chip">
+                        <Sparkles size={12} className="text-fuchsia-500" />
+                        Precarga automática
+                      </span>
+                    </div>
                   </div>
+
                   <a
                     href="mailto:soporte@lamundialdeseguros.com?subject=Suscripci%C3%B3n%20RCV%20-%20Soporte"
-                    className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-full glass-light text-slate-600 hover:text-indigo-600 text-xs font-bold transition-all hover:-translate-y-0.5"
+                    className="sm:hidden inline-flex items-center gap-2 px-3.5 py-2 rounded-full glass-light text-slate-600 hover:text-indigo-600 text-xs font-bold transition-all hover:-translate-y-0.5"
                   >
                     <HelpCircle size={13} />
-                    ¿Necesitas ayuda?
+                    Ayuda
                   </a>
                 </div>
               </header>
@@ -131,10 +183,13 @@ export default function App() {
                 {!isSuccess && <OcrStep />}
                 {isSuccess && (
                   <div className="flex flex-col items-center justify-center py-16 gap-4">
-                    <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <CheckCircle2 size={36} className="text-emerald-600" />
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 grid place-items-center shadow-[0_16px_40px_-10px_rgba(16,185,129,0.5)] animate-spring-in">
+                        <CheckCircle2 size={42} className="text-white" strokeWidth={2.4} />
+                      </div>
+                      <Sparkles size={16} className="absolute -top-1 -right-1 text-amber-400 animate-pulse-soft" />
                     </div>
-                    <h2 className="font-display text-2xl font-black text-slate-900">
+                    <h2 className="font-display text-2xl font-black text-slate-900 mt-1">
                       ¡Documentos procesados!
                     </h2>
                     <p className="text-slate-500 text-sm text-center max-w-sm">
@@ -153,7 +208,7 @@ export default function App() {
                     <ShieldCheck size={13} className="text-emerald-500" />
                     <span className="font-medium">Cifrado de extremo a extremo · TLS 1.3</span>
                   </div>
-                  <Button variant="primary" onClick={handleContinuar} className="min-w-[180px]">
+                  <Button variant="primary" onClick={handleContinuar} className="min-w-[180px] btn-shine">
                     Continuar
                     <ChevronRight size={15} />
                   </Button>
@@ -167,8 +222,9 @@ export default function App() {
 
       {!isSuccess && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 py-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-          <Button variant="primary" className="w-full" onClick={handleContinuar}>
+          <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
             Continuar
+            <ChevronRight size={15} />
           </Button>
         </div>
       )}

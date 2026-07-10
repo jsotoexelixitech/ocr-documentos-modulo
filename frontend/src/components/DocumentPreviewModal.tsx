@@ -76,7 +76,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
       >
         {/* Header */}
         <header className="flex items-center gap-3 px-4 sm:px-5 py-3.5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center text-white shadow-[0_4px_14px_rgba(15, 26, 90,0.32)] flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center text-white shadow-[0_4px_14px_rgba(15,26,90,0.32)] flex-shrink-0">
             <KindIcon size={16} strokeWidth={2.2} />
           </div>
           <div className="min-w-0 flex-1">
@@ -185,7 +185,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
                 <a
                   href={file.url}
                   download={file.name}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white text-xs font-bold shadow-[0_8px_22px_rgba(15, 26, 90,0.32)] transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white text-xs font-bold shadow-[0_8px_22px_rgba(15,26,90,0.32)] transition-all"
                 >
                   <Download size={13} />
                   Descargar archivo

@@ -92,7 +92,7 @@ export function SidebarNav() {
                   className={`
                     relative w-10 h-10 rounded-xl grid place-items-center flex-shrink-0 z-10 transition-all duration-300
                     ${isActive
-                      ? 'bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_8px_24px_rgba(15, 26, 90,0.5)] scale-110'
+                      ? 'bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_8px_24px_rgba(15,26,90,0.5)] scale-110'
                       : isComplete
                       ? 'bg-emerald-500/90 shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
                       : 'bg-white/[0.05] border border-white/[0.08]'

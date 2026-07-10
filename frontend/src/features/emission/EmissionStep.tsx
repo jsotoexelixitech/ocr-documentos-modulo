@@ -32,7 +32,7 @@ export function SectionCard({
   return (
     <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-slate-300 transition-colors">
       <div className="flex items-start gap-3 p-4 sm:p-5 pb-4 border-b border-slate-100">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center flex-shrink-0 shadow-[0_4px_14px_rgba(15, 26, 90,0.3)]">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center flex-shrink-0 shadow-[0_4px_14px_rgba(15,26,90,0.3)]">
           <Icon size={16} className="text-white" strokeWidth={2.2} />
         </div>
         <div className="flex-1 min-w-0">

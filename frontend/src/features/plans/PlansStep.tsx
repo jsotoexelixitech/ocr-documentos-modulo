@@ -180,7 +180,7 @@ export function PlansStep() {
             Categoría de uso
           </label>
           <div className="relative group">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center text-white shadow-[0_4px_14px_rgba(15, 26, 90,0.3)] pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 grid place-items-center text-white shadow-[0_4px_14px_rgba(15,26,90,0.3)] pointer-events-none">
               <CategoryIcon size={15} strokeWidth={2.2} />
             </div>
             <select
@@ -206,7 +206,7 @@ export function PlansStep() {
           <div className="relative group">
             <div className={`absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg grid place-items-center pointer-events-none transition-all ${
               selectedPlan
-                ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_4px_14px_rgba(46, 109, 191,0.3)]'
+                ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-[0_4px_14px_rgba(46,109,191,0.3)]'
                 : 'bg-slate-100 text-slate-500'
             }`}>
               <Check size={15} strokeWidth={2.5} />

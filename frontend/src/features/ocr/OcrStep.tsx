@@ -261,7 +261,7 @@ function UploadDocCard({
           ? 'border-rose-300 bg-rose-50/30 cursor-pointer hover:border-rose-400 hover:-translate-y-0.5'
           : isLoading
           ? 'border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 cursor-wait'
-          : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-[0_18px_40px_-12px_rgba(15, 26, 90,0.22)] hover:-translate-y-0.5 cursor-pointer active:scale-[0.99]'
+          : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] hover:-translate-y-0.5 cursor-pointer active:scale-[0.99]'
         }
       `}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -299,7 +299,7 @@ function UploadDocCard({
             ${isDone
               ? 'bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
               : isLoading
-              ? `bg-gradient-to-br ${config.accent} text-white shadow-[0_4px_14px_rgba(15, 26, 90,0.32)]`
+              ? `bg-gradient-to-br ${config.accent} text-white shadow-[0_4px_14px_rgba(15,26,90,0.32)]`
               : config.optional
               ? 'bg-slate-100 text-slate-500'
               : 'bg-indigo-100 text-indigo-600'
@@ -323,7 +323,7 @@ function UploadDocCard({
       <div className="mx-4 my-3 rounded-xl bg-slate-50 border border-slate-100 min-h-[150px] flex items-center justify-center p-4 relative overflow-hidden">
         {/* Scan line effect when processing */}
         {currentStatus === 'processing' && (
-          <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent shadow-[0_0_12px_rgba(15, 26, 90,0.6)] pointer-events-none"
+          <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent shadow-[0_0_12px_rgba(15,26,90,0.6)] pointer-events-none"
             style={{ animation: 'fillTrack 1.4s ease-in-out infinite alternate' }}
           />
         )}
@@ -632,7 +632,7 @@ export function OcrStep() {
 
       {/* OCR success banner */}
       {allRequiredDone && (
-        <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15, 26, 90,0.28)] animate-spring-in overflow-hidden">
+        <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">
           {/* Decorative bg */}
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-fuchsia-300/15 blur-3xl pointer-events-none" />

@@ -36,7 +36,7 @@ export function ToggleSwitch({ checked, onChange, label, description }: ToggleSw
             relative flex-shrink-0 w-12 h-7 rounded-full transition-all duration-300 cursor-pointer outline-none
             focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2
             ${checked
-              ? 'bg-gradient-to-r from-indigo-500 to-violet-500 shadow-[0_4px_14px_rgba(15, 26, 90,0.35)]'
+              ? 'bg-gradient-to-r from-indigo-500 to-violet-500 shadow-[0_4px_14px_rgba(15,26,90,0.35)]'
               : 'bg-slate-300'
             }
           `}

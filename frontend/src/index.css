@@ -301,6 +301,27 @@ body {
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }
 }
+@keyframes splashRingSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes splashBarFill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes splashRingDraw {
+  from { stroke-dashoffset: var(--circ, 289); }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-10px) scale(1.03); }
+}
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(var(--r, 90px)) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(var(--r, 90px)) rotate(-360deg); }
+}
+
+.animate-float-slow { animation: floatSlow 6s ease-in-out infinite; }
 
 .animate-fade-in       { animation: fadeIn 0.45s ease both; }
 .animate-slide-in      { animation: slideInRight 0.45s ease both; }
@@ -371,13 +392,63 @@ body {
 /* Premium card with subtle gradient border */
 .surface-card {
   position: relative;
-  background: #FFFFFF;
+  background:
+    linear-gradient(#FFFFFF, #FFFFFF) padding-box,
+    linear-gradient(150deg, rgba(46, 109, 191, 0.28), rgba(255, 255, 255, 0) 38%, rgba(232, 79, 81, 0.18)) border-box;
+  border: 1px solid transparent;
   border-radius: 28px;
   box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 1px 0 rgba(9, 17, 51, 0.04),
     0 12px 32px -12px rgba(9, 17, 51, 0.08),
     0 32px 80px -24px rgba(15, 26, 90, 0.16);
 }
+
+/* Hoverable elevated tile */
+.tile-hover {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tile-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 48px -20px rgba(15, 26, 90, 0.32);
+}
+
+/* Trust chip / pill */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(15, 26, 90, 0.08);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  color: #0F1A5A;
+  box-shadow: 0 6px 18px -10px rgba(15, 26, 90, 0.28);
+}
+
+/* Hairline divider */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 26, 90, 0.12), transparent);
+}
+
+/* Brand button shine (used by primary CTAs) */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, 0.45) 50%, transparent 75%);
+  transform: translateX(-160%) skewX(-18deg);
+  transition: none;
+  pointer-events: none;
+}
+.btn-shine:hover::after { animation: shineWave 0.9s ease-out; }
 
 .gradient-border {
   position: relative;
