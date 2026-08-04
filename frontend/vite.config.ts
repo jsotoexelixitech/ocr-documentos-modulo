@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { prefixDevProxy, resolveAppBase } from './vite-paths'
+import { spaPreviewFallback } from './vite-spa-preview'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -24,7 +25,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), spaPreviewFallback(base)],
     server: {
       host: true,
       port: 5181,
