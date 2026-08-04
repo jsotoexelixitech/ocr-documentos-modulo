@@ -1,4 +1,5 @@
 import type { Plugin } from 'vite';
+import { isBackendProxyPath } from './vite-paths';
 
 /**
  * Fallback SPA para `vite preview` bajo subpath (/ocr/).
@@ -23,6 +24,11 @@ export function spaPreviewFallback(base: string): Plugin {
         const raw = req.url ?? '/';
         const [pathname, search = ''] = raw.split('?');
         const qs = search ? `?${search}` : '';
+
+        if (isBackendProxyPath(pathname)) {
+          next();
+          return;
+        }
 
         // ProxyPass /ocr/ → http://127.0.0.1:5181/ (sin /ocr/) — Vite ve /exelixi/
         if (

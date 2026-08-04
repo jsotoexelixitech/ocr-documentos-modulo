@@ -8,17 +8,31 @@ export function resolveAppBase(env: Record<string, string>): string {
   return raw.endsWith('/') ? raw : `${raw}/`;
 }
 
+/** Rutas que vite preview debe proxyar al backend — no reescribir a index.html. */
+export function isBackendProxyPath(pathname: string): boolean {
+  return (
+    /\/api(\/|$)/.test(pathname)
+    || /\/files(\/|$)/.test(pathname)
+    || /\/docs(\/|$)/.test(pathname)
+    || pathname.endsWith('/docs.json')
+  );
+}
+
 /** Prefija rutas de proxy cuando la app se sirve bajo un subpath. */
 export function prefixDevProxy(
   base: string,
   routes: Record<string, { target: string; changeOrigin?: boolean }>,
+  deployPrefix?: string,
 ): Record<
   string,
   { target: string; changeOrigin?: boolean; rewrite?: (path: string) => string }
 > {
-  if (base === '/' || base === './') return routes;
+  const root =
+    base !== '/' && base !== './'
+      ? base.replace(/\/$/, '')
+      : deployPrefix?.replace(/\/$/, '') ?? '';
 
-  const root = base.replace(/\/$/, '');
+  if (!root) return routes;
   const out: Record<
     string,
     { target: string; changeOrigin?: boolean; rewrite?: (path: string) => string }
