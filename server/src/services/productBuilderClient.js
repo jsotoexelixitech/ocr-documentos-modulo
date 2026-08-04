@@ -77,9 +77,11 @@ async function builderGet(path) {
 
 function isEmitible(product) {
   if (!product || product.status === 'REJECTED') return false;
-  const planCount = product.productPlans?.length ?? 0;
   const coverageCount = product.coverages?.length ?? 0;
-  return planCount > 0 && coverageCount > 0;
+  if (coverageCount === 0) return false;
+  const planCount = product.productPlans?.length ?? 0;
+  // Planes persistidos o defaults por ramo (misma lógica que GET /products/:id/plans)
+  return planCount > 0 || coverageCount > 0;
 }
 
 async function listEmitibleProducts() {
