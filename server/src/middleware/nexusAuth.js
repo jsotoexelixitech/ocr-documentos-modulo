@@ -76,6 +76,14 @@ async function nexusAuth(req, res, next) {
     req.submoduloId = EXPECTED_SUBMODS.length > 0 ? EXPECTED_SUBMODS[0] : 17;
     return next();
   }
+
+  // Flujo genérico Exélixi (catálogo product-builder) — acceso directo sin nexus_token
+  if (process.env.BUILDER_CATALOG_MODE === 'true' && !token) {
+    req.empresa = { id: 0 };
+    req.submoduloId = null;
+    req.builderCatalogFlow = true;
+    return next();
+  }
   // -----------------------------------
 
   if (!ENABLED) {

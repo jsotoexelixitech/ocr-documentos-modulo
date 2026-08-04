@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { verifyNexusAccess, resolveNexusApiUrl, type NexusVerifyResult } from './nexus-core';
 import { persistProductFromHints } from '../lib/product';
+import {
+  hasNexusAccessToken,
+  isExelixiCatalogFlowHint,
+  persistExelixiCatalogFlow,
+  useBuilderCatalog,
+} from '../lib/builder-catalog';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 interface NexusContextValue {
@@ -114,6 +120,34 @@ function isChainedFlow(): boolean {
 }
 
 export function NexusGuard({ children, recheckInterval = 30 }: NexusGuardProps) {
+  const catalogStandalone = useBuilderCatalog() && !hasNexusAccessToken();
+
+  if (catalogStandalone) {
+    return (
+      <NexusContext.Provider
+        value={{
+          empresa: { id: 0, nombre: 'Exélixi', rif: '' },
+          submodulo: {
+            id: 0,
+            nombre: 'Catálogo Exélixi',
+            url: window.location.href,
+            accessUrl: null,
+          },
+        }}
+      >
+        {children}
+      </NexusContext.Provider>
+    );
+  }
+
+  return (
+    <NexusGuardVerified recheckInterval={recheckInterval}>
+      {children}
+    </NexusGuardVerified>
+  );
+}
+
+function NexusGuardVerified({ children, recheckInterval = 30 }: NexusGuardProps) {
   // Si venimos del bridge (hay sid + nexus_token), mostramos el contenido
   // de inmediato y verificamos en background para no interrumpir la UX.
   const chained = isChainedFlow();
@@ -130,6 +164,15 @@ export function NexusGuard({ children, recheckInterval = 30 }: NexusGuardProps) 
     if (!isMounted.current) return;
     if (result.active) {
       if (result.submodulo) {
+        if (
+          isExelixiCatalogFlowHint({
+            url: result.submodulo.url,
+            nombre: result.submodulo.nombre,
+            moduloNombre: result.submodulo.moduloNombre,
+          })
+        ) {
+          persistExelixiCatalogFlow();
+        }
         persistProductFromHints({
           url: result.submodulo.url,
           nombre: result.submodulo.nombre,

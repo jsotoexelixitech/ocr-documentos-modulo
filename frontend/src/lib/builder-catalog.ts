@@ -35,10 +35,74 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 export const BUILDER_PRODUCT_STORAGE_KEY = 'exelixi_builder_product';
+const CATALOG_FLOW_STORAGE_KEY = 'exelixi_catalog_flow';
 
+export function hasNexusAccessToken(): boolean {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('nexus_token')) return true;
+    return Boolean(sessionStorage.getItem('nexus_access_token_ocr'));
+  } catch {
+    return false;
+  }
+}
+
+export function isExelixiCatalogFlowHint(hints?: {
+  url?: string | null;
+  nombre?: string | null;
+  moduloNombre?: string | null;
+}): boolean {
+  if (hints?.url) {
+    try {
+      const flow = new URL(hints.url, window.location.origin).searchParams.get('flow');
+      if (flow === 'exelixi-catalog') return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  const label = `${hints?.nombre ?? ''} ${hints?.moduloNombre ?? ''}`.toLowerCase();
+  return (
+    label.includes('exelixi')
+    && (
+      label.includes('catalogo')
+      || label.includes('catálogo')
+      || label.includes('generica')
+      || label.includes('genérica')
+      || label.includes('emision')
+      || label.includes('emisión')
+    )
+  );
+}
+
+export function persistExelixiCatalogFlow(): void {
+  try {
+    sessionStorage.setItem(CATALOG_FLOW_STORAGE_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Flujo genérico Exélixi: catálogo product-builder antes del OCR (distinto de RCV La Mundial). */
 export function useBuilderCatalog(): boolean {
-  return import.meta.env.VITE_USE_BUILDER_CATALOG === '1'
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('flow') === 'exelixi-catalog') {
+      persistExelixiCatalogFlow();
+      return true;
+    }
+    if (sessionStorage.getItem(CATALOG_FLOW_STORAGE_KEY) === '1') return true;
+  } catch {
+    /* ignore */
+  }
+
+  const standaloneEnv =
+    import.meta.env.VITE_USE_BUILDER_CATALOG === '1'
     || import.meta.env.VITE_USE_BUILDER_CATALOG === 'true';
+
+  // Acceso directo /ocr/ sin token Nexus (srv001, QA interno)
+  if (standaloneEnv && !hasNexusAccessToken()) return true;
+
+  return false;
 }
 
 export async function fetchEmitibleProducts(): Promise<BuilderCatalogProduct[]> {
