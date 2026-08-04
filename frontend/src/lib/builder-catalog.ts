@@ -105,11 +105,36 @@ export function useBuilderCatalog(): boolean {
   return false;
 }
 
+export const CATALOG_ALLOWLIST = [
+  'Automovil Exelixi TEST',
+  'Gastos Funerarios Exelixi TEST',
+  'Accidentes Personales Exelixi TEST',
+];
+
+function catalogAllowlist(): string[] {
+  const fromEnv = import.meta.env.VITE_CATALOG_PRODUCT_NAMES?.split(',').map((s: string) => s.trim()).filter(Boolean);
+  return fromEnv?.length ? fromEnv : CATALOG_ALLOWLIST;
+}
+
+/** Solo los 3 ramos activos del piloto; deduplica por nombre comercial. */
+export function filterCatalogProducts(products: BuilderCatalogProduct[]): BuilderCatalogProduct[] {
+  const allow = catalogAllowlist();
+  const seen = new Set<string>();
+  const out: BuilderCatalogProduct[] = [];
+  for (const p of products) {
+    if (!allow.includes(p.commercialName)) continue;
+    if (seen.has(p.commercialName)) continue;
+    seen.add(p.commercialName);
+    out.push(p);
+  }
+  return out.sort((a, b) => allow.indexOf(a.commercialName) - allow.indexOf(b.commercialName));
+}
+
 export async function fetchEmitibleProducts(): Promise<BuilderCatalogProduct[]> {
   const { data } = await api.get<{ success: boolean; products: BuilderCatalogProduct[] }>(
     '/catalog/products',
   );
-  return data.products ?? [];
+  return filterCatalogProducts(data.products ?? []);
 }
 
 export async function fetchBuilderProduct(id: string): Promise<BuilderCatalogProduct> {

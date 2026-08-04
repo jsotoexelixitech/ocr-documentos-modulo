@@ -80,14 +80,38 @@ function isEmitible(product) {
   const coverageCount = product.coverages?.length ?? 0;
   if (coverageCount === 0) return false;
   const planCount = product.productPlans?.length ?? 0;
-  // Planes persistidos o defaults por ramo (misma lógica que GET /products/:id/plans)
   return planCount > 0 || coverageCount > 0;
+}
+
+const DEFAULT_ALLOWLIST = [
+  'Automovil Exelixi TEST',
+  'Gastos Funerarios Exelixi TEST',
+  'Accidentes Personales Exelixi TEST',
+];
+
+function catalogAllowlist() {
+  const raw = process.env.CATALOG_PRODUCT_ALLOWLIST?.trim();
+  if (!raw) return DEFAULT_ALLOWLIST;
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function filterCatalogProducts(products) {
+  const allow = catalogAllowlist();
+  const seen = new Set();
+  const out = [];
+  for (const p of products) {
+    if (!allow.includes(p.commercialName)) continue;
+    if (seen.has(p.commercialName)) continue;
+    seen.add(p.commercialName);
+    out.push(p);
+  }
+  return out.sort((a, b) => allow.indexOf(a.commercialName) - allow.indexOf(b.commercialName));
 }
 
 async function listEmitibleProducts() {
   const products = await builderGet('/products');
   if (!Array.isArray(products)) return [];
-  return products.filter(isEmitible);
+  return filterCatalogProducts(products.filter(isEmitible));
 }
 
 async function getProduct(id) {

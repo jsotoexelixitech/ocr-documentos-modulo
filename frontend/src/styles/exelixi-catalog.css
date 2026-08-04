@@ -1,0 +1,43 @@
+.exelixi-ocr {
+  --exelixi-navy: #091133;
+  --exelixi-orange: #f27121;
+  --exelixi-cyan: #00aeef;
+  --exelixi-bg: #eef1f8;
+  --exelixi-muted: #5c6478;
+  min-height: 100vh;
+  background-color: var(--exelixi-bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 174, 239, 0.1), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(242, 113, 33, 0.07), transparent);
+  color: var(--exelixi-navy);
+}
+
+.exelixi-ocr-header {
+  background: linear-gradient(135deg, #050a30 0%, #091133 55%, #0f1a5a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px -8px rgba(5, 10, 48, 0.45);
+}
+
+.exelixi-ocr-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.exelixi-ocr-wordmark span {
+  color: var(--exelixi-orange);
+}
+
+.exelixi-ocr-stepper {
+  background: #fff;
+  border: 1px solid rgba(9, 17, 51, 0.08);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+.exelixi-ocr-step-active {
+  color: var(--exelixi-cyan);
+}
+
+.exelixi-ocr-step-done {
+  color: #10b981;
+}

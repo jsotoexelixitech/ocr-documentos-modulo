@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 
 import { useProductConfig } from './hooks/useProductConfig';
 import { CatalogPickerStep } from './features/catalog/CatalogPickerStep';
+import { ExelixiOcrFlow } from './components/exelixi/ExelixiOcrFlow';
 import {
   resolveBuilderDocuments,
   useBuilderCatalog,
@@ -98,6 +99,76 @@ export default function App() {
     nextStep();
   }
 
+  if (builderCatalogMode) {
+    if (showCatalogPicker) {
+      return (
+        <>
+          <Toaster />
+          <ExelixiOcrFlow phase="catalog">
+            <CatalogPickerStep onSelected={() => goTo(1)} />
+          </ExelixiOcrFlow>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Toaster />
+        <ExelixiOcrFlow
+          phase="documents"
+          footer={
+            !isSuccess ? (
+              <div className="hidden items-center justify-between gap-4 md:flex">
+                <p className="text-xs text-slate-500">
+                  Producto: <strong>{builderProduct?.commercialName}</strong>
+                </p>
+                <Button variant="primary" onClick={handleContinuar} className="min-w-[180px] btn-shine">
+                  Continuar
+                  <ChevronRight size={15} />
+                </Button>
+              </div>
+            ) : undefined
+          }
+        >
+          {!isSuccess && (
+            <header className="mb-6">
+              <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#00AEEF]">
+                <ScanLine size={11} />
+                Paso 01 · Documentos
+              </p>
+              <h1 className="font-display text-3xl font-black tracking-tight text-[#091133] sm:text-4xl">
+                Sube tus documentos
+              </h1>
+              <p className="mt-2 max-w-xl text-sm text-slate-500">
+                Ramo <strong>{builderProduct?.commercialName}</strong>
+                {' · '}
+                {(builderProduct?.productPlans?.length ?? 0)} plan(es). OCR según recaudos del catálogo.
+              </p>
+            </header>
+          )}
+          {!isSuccess && <OcrStep />}
+          {isSuccess && (
+            <div className="flex flex-col items-center justify-center gap-4 py-12">
+              <CheckCircle2 size={48} className="text-emerald-500" />
+              <h2 className="text-2xl font-black text-[#091133]">Documentos procesados</h2>
+              <Button variant="secondary" onClick={() => goTo(1)}>
+                Volver a escanear
+              </Button>
+            </div>
+          )}
+        </ExelixiOcrFlow>
+        {!isSuccess && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden">
+            <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
+              Continuar
+              <ChevronRight size={15} />
+            </Button>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen relative">
       <WelcomeSplash />
@@ -146,15 +217,7 @@ export default function App() {
           <div className="max-w-5xl mx-auto">
             <TopStepper />
 
-            {showCatalogPicker ? (
-              <section className="surface-card overflow-hidden step-enter">
-                <div className="p-6 sm:p-8 lg:p-10">
-                  <CatalogPickerStep onSelected={() => goTo(1)} />
-                </div>
-              </section>
-            ) : (
-              <>
-            {!isSuccess && !showCatalogPicker && (
+            {!isSuccess && (
               <header className="mb-8 animate-fade-in">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
@@ -166,16 +229,7 @@ export default function App() {
                       Sube tus documentos
                     </h1>
                     <p className="text-slate-500 text-sm mt-2 max-w-xl leading-relaxed">
-                      {builderProduct ? (
-                        <>
-                          Producto: <strong>{builderProduct.commercialName}</strong>
-                          {' · '}
-                          {(builderProduct.productPlans?.length ?? 0)} plan(es) disponibles.
-                          {' '}Los analizaremos con OCR según el catálogo configurado.
-                        </>
-                      ) : (
-                        'Los analizaremos con OCR y precargaremos tus datos automáticamente.'
-                      )}
+                      Los analizaremos con OCR y precargaremos tus datos automáticamente.
                     </p>
 
                     {/* Chips de confianza */}
@@ -230,7 +284,7 @@ export default function App() {
                 )}
               </div>
 
-              {!isSuccess && !showCatalogPicker && (
+              {!isSuccess && (
                 <div className="hidden md:flex items-center justify-between gap-4 px-8 lg:px-10 py-5 border-t border-slate-100/80 bg-gradient-to-b from-slate-50/50 to-white/40 backdrop-blur-sm">
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <ShieldCheck size={13} className="text-emerald-500" />
@@ -243,14 +297,12 @@ export default function App() {
                 </div>
               )}
             </section>
-              </>
-            )}
 
           </div>
         </main>
       </div>
 
-      {!isSuccess && !showCatalogPicker && (
+      {!isSuccess && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 py-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
           <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
             Continuar
