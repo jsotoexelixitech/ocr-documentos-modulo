@@ -5,6 +5,7 @@
 const axios = require('axios');
 
 const BASE_URL = (process.env.PRODUCT_BUILDER_API_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+const API_PREFIX = (process.env.PRODUCT_BUILDER_API_PREFIX || 'producto-builder-api').replace(/^\/|\/$/g, '');
 const EMAIL = process.env.PRODUCT_BUILDER_API_EMAIL?.trim() || '';
 const PASSWORD = process.env.PRODUCT_BUILDER_API_PASSWORD?.trim() || '';
 
@@ -21,7 +22,7 @@ async function login() {
   }
 
   const { data } = await axios.post(
-    `${BASE_URL}/api/auth/login`,
+    `${BASE_URL}/${API_PREFIX}/auth/login`,
     { email: EMAIL, password: PASSWORD },
     { timeout: 15000 },
   );
@@ -46,7 +47,7 @@ async function authHeaders() {
 }
 
 async function builderGet(path) {
-  const url = `${BASE_URL}/api${path}`;
+  const url = `${BASE_URL}/${API_PREFIX}${path.startsWith('/') ? path : `/${path}`}`;
 
   async function attempt(retry) {
     try {
