@@ -18,8 +18,9 @@ const axios = require('axios');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 
-const ocrRoutes  = require('./routes/ocr');
-const nexusAuth  = require('./middleware/nexusAuth');
+const ocrRoutes    = require('./routes/ocr');
+const catalogRoutes = require('./routes/catalog');
+const nexusAuth    = require('./middleware/nexusAuth');
 
 const app = express();
 
@@ -97,6 +98,9 @@ async function proxyValrep(req, res) {
 }
 app.use('/api/valrep', proxyValrep);
 app.use('/api/catalogo', proxyValrep);
+
+// Catálogo Exélixi (product-builder) — sin nexus_token; credenciales server-side
+app.use('/api/catalog', catalogRoutes);
 
 // Multi-tenant: todas las rutas /api (excepto /api/health y proxies arriba) requieren nexus_token
 app.use('/api', nexusAuth, ocrRoutes);

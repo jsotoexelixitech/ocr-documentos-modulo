@@ -13,6 +13,8 @@ import type {
   QuoteState,
 } from '../types';
 import { getProductId } from '../lib/product';
+import { readStoredBuilderProduct, useBuilderCatalog } from '../lib/builder-catalog';
+import type { BuilderCatalogProduct } from '../types/builder-catalog';
 
 const defaultDoc = (): DocumentState => ({ status: 'idle', progress: 0 });
 
@@ -83,12 +85,14 @@ interface WizardActions {
   setQuoteState: (s: QuoteState, error?: string | null) => void;
   clearQuote: () => void;
   setMetadataCanal: (data: Record<string, any> | null) => void;
+  setBuilderProduct: (product: BuilderCatalogProduct | null) => void;
   reset: () => void;
 }
 
 const initialState: WizardState = {
   step: 1,
   product: getProductId(),
+  builderProduct: useBuilderCatalog() ? readStoredBuilderProduct() : null,
   documents: {
     cedula: defaultDoc(),
     licencia: defaultDoc(),
@@ -202,7 +206,9 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
 
   setMetadataCanal: (data) => set({ metadataCanal: data }),
 
-  reset: () => set(initialState),
+  setBuilderProduct: (builderProduct) => set({ builderProduct }),
+
+  reset: () => set({ ...initialState, builderProduct: useBuilderCatalog() ? readStoredBuilderProduct() : null }),
 }));
 
 // ExposiciÃ³n controlada al objeto global para tests E2E (Playwright).

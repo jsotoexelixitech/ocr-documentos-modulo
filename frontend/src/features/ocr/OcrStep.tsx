@@ -9,6 +9,10 @@ import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
 import { getProductConfig } from '../../lib/product';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
+import {
+  branchHasVehicle,
+  resolveBuilderDocuments,
+} from '../../lib/builder-catalog';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
@@ -463,19 +467,26 @@ import { useProductConfig } from '../../hooks/useProductConfig';
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 export function OcrStep() {
-  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador } = useWizardStore();
+  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador, builderProduct } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
   // Producto activo y configuración desde Nexus
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
+  const hasVehicle = builderProduct
+    ? branchHasVehicle(builderProduct.branch)
+    : product.hasVehicle;
 
-  // Documentos según el producto activo (por defecto) o la configuración de Nexus si existe.
+  // Documentos según catálogo Exélixi, Nexus o producto legacy (rcv/funerario).
   let requiredDocs: DocType[] = product.docs.required;
   let optionalDocs: DocType[] = product.docs.optional;
 
-  if (config?.documentos) {
+  if (builderProduct) {
+    const slots = resolveBuilderDocuments(builderProduct);
+    requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
+    optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
+  } else if (config?.documentos) {
     if (Array.isArray(config.documentos)) {
       const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
       requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as DocType);
@@ -528,7 +539,7 @@ export function OcrStep() {
       }
       // El vehículo sólo aplica a productos con vehículo (RCV). Funerario no
       // lleva certificado de vehículo.
-      const cert = product.hasVehicle ? documents.certificado.ocr : undefined;
+      const cert = hasVehicle ? documents.certificado.ocr : undefined;
       if (cert) {
         setVehicle({
           placa: cert.placa ?? '',
@@ -544,7 +555,7 @@ export function OcrStep() {
   }, [
     allRequiredDone,
     ocrDone,
-    product.hasVehicle,
+    hasVehicle,
     documents.cedula.ocr,
     documents.certificado.ocr,
     catalogs.sexos,
@@ -660,7 +671,7 @@ export function OcrStep() {
                 { label: 'Nombre', value: documents.cedula.ocr?.nombre },
                 { label: 'Apellido', value: documents.cedula.ocr?.apellido },
                 { label: 'Documento', value: `${documents.cedula.ocr?.tipoDoc ?? 'V'}-${documents.cedula.ocr?.identificacion ?? ''}` },
-                product.hasVehicle
+                hasVehicle
                   ? { label: 'Placa', value: documents.certificado.ocr?.placa }
                   : { label: 'Fecha nac.', value: documents.cedula.ocr?.fechaNacimiento },
               ].map(({ label, value }, idx) =>

@@ -13,6 +13,11 @@ import { ChevronRight, Sparkles, ShieldCheck, HelpCircle, CheckCircle2, ScanLine
 import { useEffect } from 'react';
 
 import { useProductConfig } from './hooks/useProductConfig';
+import { CatalogPickerStep } from './features/catalog/CatalogPickerStep';
+import {
+  resolveBuilderDocuments,
+  useBuilderCatalog,
+} from './lib/builder-catalog';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
@@ -30,9 +35,11 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, nextStep, goTo, setMetadataCanal } = useWizardStore();
+  const { step, documents, nextStep, goTo, setMetadataCanal, builderProduct } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
+  const builderCatalogMode = useBuilderCatalog();
+  const showCatalogPicker = builderCatalogMode && !builderProduct;
 
   // Interceptar SSO Delegation
   useEffect(() => {
@@ -64,8 +71,12 @@ export default function App() {
 
   function handleContinuar() {
     let requiredDocs = product.docs.required;
-    
-    if (config?.documentos) {
+
+    if (builderProduct) {
+      requiredDocs = resolveBuilderDocuments(builderProduct)
+        .filter((d) => d.required)
+        .map((d) => d.ocrType);
+    } else if (config?.documentos) {
       if (Array.isArray(config.documentos)) {
         const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
         requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as any);
@@ -135,19 +146,36 @@ export default function App() {
           <div className="max-w-5xl mx-auto">
             <TopStepper />
 
-            {!isSuccess && (
+            {showCatalogPicker ? (
+              <section className="surface-card overflow-hidden step-enter">
+                <div className="p-6 sm:p-8 lg:p-10">
+                  <CatalogPickerStep onSelected={() => goTo(1)} />
+                </div>
+              </section>
+            ) : (
+              <>
+            {!isSuccess && !showCatalogPicker && (
               <header className="mb-8 animate-fade-in">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <p className="text-[0.68rem] font-black tracking-[0.22em] gradient-text-indigo uppercase mb-2 inline-flex items-center gap-1.5">
                       <Sparkles size={11} className="text-indigo-500" />
-                      Paso 01 · Documentos
+                      {builderProduct ? 'Paso 01 · Documentos' : 'Paso 01 · Documentos'}
                     </p>
                     <h1 className="font-display text-3xl sm:text-[2.5rem] font-black text-slate-900 tracking-tight leading-tight">
                       Sube tus documentos
                     </h1>
                     <p className="text-slate-500 text-sm mt-2 max-w-xl leading-relaxed">
-                      Los analizaremos con OCR y precargaremos tus datos automáticamente.
+                      {builderProduct ? (
+                        <>
+                          Producto: <strong>{builderProduct.commercialName}</strong>
+                          {' · '}
+                          {(builderProduct.productPlans?.length ?? 0)} plan(es) disponibles.
+                          {' '}Los analizaremos con OCR según el catálogo configurado.
+                        </>
+                      ) : (
+                        'Los analizaremos con OCR y precargaremos tus datos automáticamente.'
+                      )}
                     </p>
 
                     {/* Chips de confianza */}
@@ -202,7 +230,7 @@ export default function App() {
                 )}
               </div>
 
-              {!isSuccess && (
+              {!isSuccess && !showCatalogPicker && (
                 <div className="hidden md:flex items-center justify-between gap-4 px-8 lg:px-10 py-5 border-t border-slate-100/80 bg-gradient-to-b from-slate-50/50 to-white/40 backdrop-blur-sm">
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <ShieldCheck size={13} className="text-emerald-500" />
@@ -215,12 +243,14 @@ export default function App() {
                 </div>
               )}
             </section>
+              </>
+            )}
 
           </div>
         </main>
       </div>
 
-      {!isSuccess && (
+      {!isSuccess && !showCatalogPicker && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 py-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
           <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
             Continuar

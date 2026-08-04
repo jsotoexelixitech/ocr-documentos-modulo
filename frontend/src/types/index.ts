@@ -156,6 +156,8 @@ export interface WizardState {
   step: number;
   /** Producto activo del flujo (rcv | funerario). Se propaga entre módulos. */
   product: ProductId;
+  /** Producto del catálogo Exélixi (product-builder) cuando VITE_USE_BUILDER_CATALOG está activo. */
+  builderProduct: import('./builder-catalog').BuilderCatalogProduct | null;
   documents: Record<DocType, DocumentState>;
   ocrDone: boolean;
   tomador: TomadorData;
