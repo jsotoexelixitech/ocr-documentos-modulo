@@ -19,6 +19,7 @@ import {
   resolveBuilderDocuments,
   useBuilderCatalog,
 } from './lib/builder-catalog';
+import { buildOcrHandoff, continueToEmissionWizard } from './lib/exelixi-handoff';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
@@ -72,6 +73,26 @@ export default function App() {
 
   function handleContinuar() {
     let requiredDocs = product.docs.required;
+
+    if (builderCatalogMode && builderProduct) {
+      requiredDocs = resolveBuilderDocuments(builderProduct)
+        .filter((d) => d.required)
+        .map((d) => d.ocrType);
+
+      const allDone = requiredDocs.every((d) => documents[d]?.status === 'done');
+      if (!allDone) {
+        const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
+        toast.warning('Documentos pendientes', `Procesa ${lista} para continuar.`);
+        return;
+      }
+
+      toast.success('Documentos listos', 'Continuando con datos, planes y emisión…', 1200);
+      continueToEmissionWizard(
+        builderProduct.id,
+        buildOcrHandoff(builderProduct.id, documents, builderProduct),
+      );
+      return;
+    }
 
     if (builderProduct) {
       requiredDocs = resolveBuilderDocuments(builderProduct)

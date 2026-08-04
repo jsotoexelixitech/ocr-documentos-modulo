@@ -18,14 +18,11 @@
   box-shadow: 0 8px 32px -8px rgba(5, 10, 48, 0.45);
 }
 
-.exelixi-ocr-wordmark {
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #fff;
-}
-
-.exelixi-ocr-wordmark span {
-  color: var(--exelixi-orange);
+.exelixi-ocr-logo {
+  height: 2.25rem;
+  width: auto;
+  max-width: min(220px, 55vw);
+  object-fit: contain;
 }
 
 .exelixi-ocr-stepper {

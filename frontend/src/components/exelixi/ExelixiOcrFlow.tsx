@@ -19,21 +19,13 @@ export function ExelixiOcrFlow({ phase, children, footer }: ExelixiOcrFlowProps)
       <header className="exelixi-ocr-header sticky top-0 z-40">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 ring-1 ring-white/15">
-              <img
-                src={publicAsset('exelixi-isotipo.svg')}
-                alt=""
-                className="h-6 w-6"
-                draggable={false}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="exelixi-ocr-wordmark truncate text-lg leading-tight">
-                exelixi<span>technology</span>
-              </p>
+            <img
+              src={publicAsset('branding/exelixi-logo-color.png')}
+              alt="Exélixi technology"
+              className="exelixi-ocr-logo shrink-0"
+              draggable={false}
+            />
+            <div className="min-w-0 hidden sm:block">
               <p className="text-[0.6rem] font-bold uppercase tracking-[0.2em] text-white/50">
                 Emisión genérica · Exélixi
               </p>
