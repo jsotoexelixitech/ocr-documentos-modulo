@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getEstados, getCiudades, getValrepList, type CatalogItem } from '../lib/api';
+import { useBuilderCatalog } from '../lib/builder-catalog';
 
 export interface Catalogs {
   estados     : CatalogItem[];
@@ -33,6 +34,18 @@ const LIST_FALLBACKS: Record<string, CatalogItem[]> = {
   ],
 };
 
+/** Catálogos locales — flujo Exélixi genérico (sin valrep La Mundial). */
+function exelixiLocalCatalogs(): Catalogs {
+  return {
+    estados: [],
+    sexos: LIST_FALLBACKS.SEXO,
+    estadosCivil: LIST_FALLBACKS.EDOCIVIL,
+    parentescos: LIST_FALLBACKS.PARENTESCOS,
+    loading: false,
+    error: null,
+  };
+}
+
 async function loadList(domain: keyof typeof LIST_FALLBACKS): Promise<CatalogItem[]> {
   try {
     return await getValrepList(domain);
@@ -43,9 +56,17 @@ async function loadList(domain: keyof typeof LIST_FALLBACKS): Promise<CatalogIte
 }
 
 export function useCatalogs(): Catalogs {
-  const [cats, setCats] = useState<Catalogs>(EMPTY);
+  const exelixiFlow = useBuilderCatalog();
+  const [cats, setCats] = useState<Catalogs>(() =>
+    exelixiFlow ? exelixiLocalCatalogs() : EMPTY,
+  );
 
   useEffect(() => {
+    if (exelixiFlow) {
+      setCats(exelixiLocalCatalogs());
+      return;
+    }
+
     let cancelled = false;
 
     (async () => {
@@ -78,7 +99,7 @@ export function useCatalogs(): Catalogs {
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [exelixiFlow]);
 
   return cats;
 }
@@ -90,10 +111,11 @@ export interface CiudadesState {
 }
 
 export function useCiudades(cestado?: number | null): CiudadesState {
+  const exelixiFlow = useBuilderCatalog();
   const [state, setState] = useState<CiudadesState>({ ciudades: [], loading: false, error: null });
 
   useEffect(() => {
-    if (!cestado) {
+    if (exelixiFlow || !cestado) {
       setState({ ciudades: [], loading: false, error: null });
       return;
     }
@@ -110,7 +132,7 @@ export function useCiudades(cestado?: number | null): CiudadesState {
       });
 
     return () => { cancelled = true; };
-  }, [cestado]);
+  }, [cestado, exelixiFlow]);
 
   return state;
 }
