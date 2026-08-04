@@ -47,6 +47,12 @@ export function hasNexusAccessToken(): boolean {
   }
 }
 
+/** Ruta pública dedicada: /ocr/exelixi/ (distinta de /ocr/?product=rcv La Mundial). */
+export function isExelixiCatalogEntryPath(pathname?: string): boolean {
+  const path = (pathname ?? window.location.pathname).replace(/\/$/, '') || '/';
+  return path.endsWith('/exelixi') || path.includes('/ocr/exelixi');
+}
+
 export function isExelixiCatalogFlowHint(hints?: {
   url?: string | null;
   nombre?: string | null;
@@ -54,8 +60,9 @@ export function isExelixiCatalogFlowHint(hints?: {
 }): boolean {
   if (hints?.url) {
     try {
-      const flow = new URL(hints.url, window.location.origin).searchParams.get('flow');
-      if (flow === 'exelixi-catalog') return true;
+      const parsed = new URL(hints.url, window.location.origin);
+      if (parsed.searchParams.get('flow') === 'exelixi-catalog') return true;
+      if (isExelixiCatalogEntryPath(parsed.pathname)) return true;
     } catch {
       /* ignore */
     }
@@ -85,6 +92,10 @@ export function persistExelixiCatalogFlow(): void {
 /** Flujo genérico Exélixi: catálogo product-builder antes del OCR (distinto de RCV La Mundial). */
 export function useBuilderCatalog(): boolean {
   try {
+    if (isExelixiCatalogEntryPath()) {
+      persistExelixiCatalogFlow();
+      return true;
+    }
     const params = new URLSearchParams(window.location.search);
     if (params.get('flow') === 'exelixi-catalog') {
       persistExelixiCatalogFlow();

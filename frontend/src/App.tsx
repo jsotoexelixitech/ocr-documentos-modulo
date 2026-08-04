@@ -19,7 +19,7 @@ import {
   resolveBuilderDocuments,
   useBuilderCatalog,
 } from './lib/builder-catalog';
-import { buildOcrHandoff, continueToEmissionWizard } from './lib/exelixi-handoff';
+import { buildOcrHandoff, continueToFormularioModule } from './lib/exelixi-handoff';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
@@ -86,9 +86,8 @@ export default function App() {
         return;
       }
 
-      toast.success('Documentos listos', 'Continuando con datos, planes y emisión…', 1200);
-      continueToEmissionWizard(
-        builderProduct.id,
+      toast.success('Documentos listos', 'Continuando con el formulario de emisión…', 1200);
+      continueToFormularioModule(
         buildOcrHandoff(builderProduct.id, documents, builderProduct),
       );
       return;

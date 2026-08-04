@@ -1,7 +1,9 @@
 import type { DocType, DocumentState } from '../types';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
+import { persistBuilderProduct, persistExelixiCatalogFlow } from './builder-catalog';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
+export const EXELIXI_CATALOG_FLOW_KEY = 'exelixi_catalog_flow';
 
 export type OcrDocType = 'cedula' | 'licencia' | 'certificado' | 'rif';
 
@@ -56,23 +58,49 @@ export function persistOcrHandoff(handoff: ExelixiOcrHandoff): void {
   sessionStorage.setItem(EXELIXI_OCR_HANDOFF_KEY, JSON.stringify(handoff));
 }
 
-/** URL del wizard de emisión genérica (datos → planes → pago → PDF). */
-export function getEmissionContinueUrl(productId: string): string {
-  const configured = import.meta.env.VITE_EMISSION_CONTINUE_BASE as string | undefined;
-  const base = (configured?.replace(/\/$/, '') || '/producto-builder').replace(/\/$/, '');
-  const params = new URLSearchParams({
-    step: 'datos',
-    flow: 'exelixi-catalog',
-  });
-  return `${base}/emitir/${encodeURIComponent(productId)}?${params.toString()}`;
+function getModuleTokenKey(): string {
+  return 'nexus_access_token_ocr';
 }
 
-export function continueToEmissionWizard(productId: string, handoff: ExelixiOcrHandoff): void {
-  persistOcrHandoff(handoff);
+/** Siguiente paso: módulo formulario (misma cadena que La Mundial, rama Exélixi). */
+export function getFormularioContinueUrl(): string {
+  const configured = import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined;
+  const base = (configured?.replace(/\/$/, '') || '/formulario').replace(/\/$/, '');
+  const params = new URLSearchParams({ flow: 'exelixi-catalog' });
+
   try {
-    sessionStorage.setItem('exelixi_catalog_flow', '1');
+    const current = new URL(window.location.href);
+    const sid = current.searchParams.get('sid');
+    const nexusToken =
+      current.searchParams.get('nexus_token')
+      || sessionStorage.getItem(getModuleTokenKey());
+    if (sid) params.set('sid', sid);
+    if (nexusToken) params.set('nexus_token', nexusToken);
   } catch {
     /* ignore */
   }
-  window.location.href = getEmissionContinueUrl(productId);
+
+  return `${base}/?${params.toString()}`;
+}
+
+export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
+  persistOcrHandoff(handoff);
+  persistExelixiCatalogFlow();
+  persistBuilderProduct(handoff.product ?? null);
+
+  if (typeof window.__bridgeAdvance === 'function') {
+    void window.__bridgeAdvance({
+      exelixiCatalog: true,
+      builderProduct: handoff.product,
+      productId: handoff.productId,
+    });
+    return;
+  }
+
+  window.location.href = getFormularioContinueUrl();
+}
+
+/** @deprecated Usar continueToFormularioModule — product-builder es solo catálogo admin. */
+export function continueToEmissionWizard(productId: string, handoff: ExelixiOcrHandoff): void {
+  continueToFormularioModule({ ...handoff, productId });
 }
