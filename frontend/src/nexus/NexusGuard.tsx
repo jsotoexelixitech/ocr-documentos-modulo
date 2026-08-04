@@ -4,7 +4,6 @@ import { persistProductFromHints } from '../lib/product';
 import {
   hasNexusAccessToken,
   isExelixiCatalogFlowHint,
-  persistExelixiCatalogFlow,
   useBuilderCatalog,
 } from '../lib/builder-catalog';
 
@@ -164,21 +163,15 @@ function NexusGuardVerified({ children, recheckInterval = 30 }: NexusGuardProps)
     if (!isMounted.current) return;
     if (result.active) {
       if (result.submodulo) {
-        if (
-          isExelixiCatalogFlowHint({
-            url: result.submodulo.url,
-            nombre: result.submodulo.nombre,
-            moduloNombre: result.submodulo.moduloNombre,
-          })
-        ) {
-          persistExelixiCatalogFlow();
-        }
-        persistProductFromHints({
+        const hints = {
           url: result.submodulo.url,
           nombre: result.submodulo.nombre,
           moduloNombre: result.submodulo.moduloNombre,
           product: result.product,
-        });
+        };
+        if (!isExelixiCatalogFlowHint(hints)) {
+          persistProductFromHints(hints);
+        }
       }
       setState({ status: 'active', empresa: result.empresa, submodulo: result.submodulo });
     } else {

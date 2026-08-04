@@ -35,7 +35,6 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 export const BUILDER_PRODUCT_STORAGE_KEY = 'exelixi_builder_product';
-const CATALOG_FLOW_STORAGE_KEY = 'exelixi_catalog_flow';
 
 export function hasNexusAccessToken(): boolean {
   try {
@@ -75,33 +74,19 @@ export function isExelixiCatalogFlowHint(hints?: {
       || label.includes('catálogo')
       || label.includes('generica')
       || label.includes('genérica')
-      || label.includes('emision')
-      || label.includes('emisión')
     )
   );
 }
 
-export function persistExelixiCatalogFlow(): void {
-  try {
-    sessionStorage.setItem(CATALOG_FLOW_STORAGE_KEY, '1');
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Flujo genérico Exélixi: catálogo product-builder antes del OCR (distinto de RCV La Mundial). */
+/** Flujo genérico Exélixi: catálogo product-builder (distinto de RCV La Mundial). */
 export function useBuilderCatalog(): boolean {
   try {
-    if (isExelixiCatalogEntryPath()) {
-      persistExelixiCatalogFlow();
-      return true;
-    }
     const params = new URLSearchParams(window.location.search);
-    if (params.get('flow') === 'exelixi-catalog') {
-      persistExelixiCatalogFlow();
-      return true;
+    if (params.get('product') === 'rcv' || params.get('product') === 'funerario') {
+      return false;
     }
-    if (sessionStorage.getItem(CATALOG_FLOW_STORAGE_KEY) === '1') return true;
+    if (isExelixiCatalogEntryPath()) return true;
+    if (params.get('flow') === 'exelixi-catalog') return true;
   } catch {
     /* ignore */
   }
@@ -110,7 +95,6 @@ export function useBuilderCatalog(): boolean {
     import.meta.env.VITE_USE_BUILDER_CATALOG === '1'
     || import.meta.env.VITE_USE_BUILDER_CATALOG === 'true';
 
-  // Acceso directo /ocr/ sin token Nexus (srv001, QA interno)
   if (standaloneEnv && !hasNexusAccessToken()) return true;
 
   return false;

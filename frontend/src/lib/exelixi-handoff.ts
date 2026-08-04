@@ -1,9 +1,8 @@
 import type { DocType, DocumentState } from '../types';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
-import { persistBuilderProduct, persistExelixiCatalogFlow } from './builder-catalog';
+import { persistBuilderProduct } from './builder-catalog';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
-export const EXELIXI_CATALOG_FLOW_KEY = 'exelixi_catalog_flow';
 
 export type OcrDocType = 'cedula' | 'licencia' | 'certificado' | 'rif';
 
@@ -85,7 +84,6 @@ export function getFormularioContinueUrl(): string {
 
 export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
   persistOcrHandoff(handoff);
-  persistExelixiCatalogFlow();
   persistBuilderProduct(handoff.product ?? null);
 
   if (typeof window.__bridgeAdvance === 'function') {
