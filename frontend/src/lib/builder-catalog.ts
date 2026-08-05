@@ -60,7 +60,8 @@ export function isExelixiCatalogFlowHint(hints?: {
   if (hints?.url) {
     try {
       const parsed = new URL(hints.url, window.location.origin);
-      if (parsed.searchParams.get('flow') === 'exelixi-catalog') return true;
+      const flow = parsed.searchParams.get('flow');
+      if (flow === 'exelixi-catalog' || flow === 'exelixi') return true;
       if (isExelixiCatalogEntryPath(parsed.pathname)) return true;
     } catch {
       /* ignore */
@@ -82,11 +83,12 @@ export function isExelixiCatalogFlowHint(hints?: {
 export function useBuilderCatalog(): boolean {
   try {
     const params = new URLSearchParams(window.location.search);
+    const flow = params.get('flow');
+    if (flow === 'exelixi-catalog' || flow === 'exelixi') return true;
     if (params.get('product') === 'rcv' || params.get('product') === 'funerario') {
       return false;
     }
     if (isExelixiCatalogEntryPath()) return true;
-    if (params.get('flow') === 'exelixi-catalog') return true;
   } catch {
     /* ignore */
   }
