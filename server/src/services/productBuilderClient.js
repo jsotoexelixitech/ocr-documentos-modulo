@@ -78,6 +78,8 @@ async function builderGet(path) {
 
 function isEmitible(product) {
   if (!product || product.status === 'REJECTED') return false;
+  // Desactivado en product-builder: no aparece en el selector de emisión.
+  if (product.catalogVisible === false) return false;
   const coverageCount = product.coverages?.length ?? 0;
   if (coverageCount === 0) return false;
   const planCount = product.productPlans?.length ?? 0;
