@@ -5,6 +5,10 @@ import App from './App.tsx'
 import { OcrConfigPanel } from './config/OcrConfigPanel.tsx'
 import './lib/bridge'
 import { NexusGuard } from './nexus/NexusGuard'
+import { applyExelixiBranding } from './lib/exelixi-branding'
+
+// Identidad Exélixi (colores + favicon) solo si el flujo activo es el catálogo.
+applyExelixiBranding('OCR de Documentos');
 
 // Enrutamiento simple: /config → panel de configuración, resto → app normal.
 const isConfigRoute = window.location.pathname === '/config';

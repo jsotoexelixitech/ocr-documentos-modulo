@@ -1,21 +1,23 @@
+/* Paleta oficial Exélixi (manual de marca):
+   Oxford #0C133A · Pumpkin #ED7423 · Sky #05C6DF · Platinum #E5E5E5 */
 .exelixi-ocr {
-  --exelixi-navy: #091133;
-  --exelixi-orange: #f27121;
-  --exelixi-cyan: #00aeef;
+  --exelixi-navy: #0C133A;
+  --exelixi-orange: #ED7423;
+  --exelixi-cyan: #05C6DF;
   --exelixi-bg: #eef1f8;
   --exelixi-muted: #5c6478;
   min-height: 100vh;
   background-color: var(--exelixi-bg);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 174, 239, 0.1), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(242, 113, 33, 0.07), transparent);
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(5, 198, 223, 0.1), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(237, 116, 35, 0.07), transparent);
   color: var(--exelixi-navy);
 }
 
 .exelixi-ocr-header {
-  background: linear-gradient(135deg, #050a30 0%, #091133 55%, #0f1a5a 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px -8px rgba(5, 10, 48, 0.45);
+  background: linear-gradient(135deg, #04051a 0%, #0C133A 55%, #1a2255 100%);
+  border-bottom: 1px solid rgba(5, 198, 223, 0.25);
+  box-shadow: 0 8px 32px -8px rgba(4, 5, 26, 0.45);
 }
 
 .exelixi-ocr-logo {
