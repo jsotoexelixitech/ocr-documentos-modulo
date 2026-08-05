@@ -102,29 +102,31 @@ export function useBuilderCatalog(): boolean {
   return false;
 }
 
-export const CATALOG_ALLOWLIST = [
-  'Automovil Exelixi TEST',
-  'Gastos Funerarios Exelixi TEST',
-  'Accidentes Personales Exelixi TEST',
-];
-
-function catalogAllowlist(): string[] {
+/**
+ * Filtro opcional vía VITE_CATALOG_PRODUCT_NAMES (nombres separados por coma).
+ * Sin la variable se muestran TODOS los productos emitibles que devuelva el
+ * backend — los productos nuevos del builder aparecen sin tocar código.
+ */
+function catalogAllowlist(): string[] | null {
   const fromEnv = import.meta.env.VITE_CATALOG_PRODUCT_NAMES?.split(',').map((s: string) => s.trim()).filter(Boolean);
-  return fromEnv?.length ? fromEnv : CATALOG_ALLOWLIST;
+  return fromEnv?.length ? fromEnv : null;
 }
 
-/** Solo los 3 ramos activos del piloto; deduplica por nombre comercial. */
+/** Aplica allowlist opcional y deduplica por nombre comercial. */
 export function filterCatalogProducts(products: BuilderCatalogProduct[]): BuilderCatalogProduct[] {
   const allow = catalogAllowlist();
   const seen = new Set<string>();
   const out: BuilderCatalogProduct[] = [];
   for (const p of products) {
-    if (!allow.includes(p.commercialName)) continue;
+    if (allow && !allow.includes(p.commercialName)) continue;
     if (seen.has(p.commercialName)) continue;
     seen.add(p.commercialName);
     out.push(p);
   }
-  return out.sort((a, b) => allow.indexOf(a.commercialName) - allow.indexOf(b.commercialName));
+  if (allow) {
+    out.sort((a, b) => allow.indexOf(a.commercialName) - allow.indexOf(b.commercialName));
+  }
+  return out;
 }
 
 export async function fetchEmitibleProducts(): Promise<BuilderCatalogProduct[]> {
