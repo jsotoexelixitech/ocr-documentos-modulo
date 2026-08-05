@@ -84,15 +84,14 @@ function isEmitible(product) {
   return planCount > 0 || coverageCount > 0;
 }
 
-const DEFAULT_ALLOWLIST = [
-  'Automovil Exelixi TEST',
-  'Gastos Funerarios Exelixi TEST',
-  'Accidentes Personales Exelixi TEST',
-];
-
+/**
+ * Allowlist opcional por CATALOG_PRODUCT_ALLOWLIST (nombres separados por coma).
+ * Sin la variable (o con '*') se listan TODOS los productos emitibles del
+ * product-builder — así los ramos/productos nuevos aparecen sin tocar código.
+ */
 function catalogAllowlist() {
   const raw = process.env.CATALOG_PRODUCT_ALLOWLIST?.trim();
-  if (!raw) return DEFAULT_ALLOWLIST;
+  if (!raw || raw === '*') return null;
   return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
@@ -101,12 +100,15 @@ function filterCatalogProducts(products) {
   const seen = new Set();
   const out = [];
   for (const p of products) {
-    if (!allow.includes(p.commercialName)) continue;
+    if (allow && !allow.includes(p.commercialName)) continue;
     if (seen.has(p.commercialName)) continue;
     seen.add(p.commercialName);
     out.push(p);
   }
-  return out.sort((a, b) => allow.indexOf(a.commercialName) - allow.indexOf(b.commercialName));
+  if (allow) {
+    out.sort((a, b) => allow.indexOf(a.commercialName) - allow.indexOf(b.commercialName));
+  }
+  return out;
 }
 
 async function listEmitibleProducts() {
