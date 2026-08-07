@@ -5,16 +5,10 @@ import { moduleApiBase } from './app-base';
 const api = axios.create({ baseURL: moduleApiBase() });
 
 // Inyecta el nexus_token (multi-tenant) en cada request al backend del módulo.
-// La clave coincide con la usada por NexusGuard en este módulo.
-api.interceptors.request.use((config) => {
-  const token =
-    new URLSearchParams(window.location.search).get('nexus_token') ||
-    sessionStorage.getItem('nexus_access_token_ocr');
-  if (token) {
-    config.headers.set('Authorization', `Bearer ${token}`);
-  }
-  return config;
-});
+import { attachNexusTokenAxios } from './nexus-token-client';
+
+const NEXUS_TOKEN_KEY = 'nexus_access_token_ocr';
+attachNexusTokenAxios(api, NEXUS_TOKEN_KEY);
 
 export interface UploadResponse {
   success: boolean;
