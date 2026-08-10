@@ -221,15 +221,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* TEMP: CTA ayuda oculta hasta nuevo aviso
-            <a
-              href="mailto:soporte@lamundialdeseguros.com?subject=Suscripci%C3%B3n%20RCV%20-%20Soporte"
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/70 ring-1 ring-slate-200/70 text-slate-600 hover:text-indigo-600 hover:-translate-y-0.5 text-xs font-bold transition-all"
-            >
-              <HelpCircle size={13} />
-              ¿Necesitas ayuda?
-            </a>
-            */}
           </div>
         </div>
       </header>
@@ -271,15 +262,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* TEMP: CTA ayuda oculta hasta nuevo aviso
-                  <a
-                    href="mailto:soporte@lamundialdeseguros.com?subject=Suscripci%C3%B3n%20RCV%20-%20Soporte"
-                    className="sm:hidden inline-flex items-center gap-2 px-3.5 py-2 rounded-full glass-light text-slate-600 hover:text-indigo-600 text-xs font-bold transition-all hover:-translate-y-0.5"
-                  >
-                    <HelpCircle size={13} />
-                    Ayuda
-                  </a>
-                  */}
                 </div>
               </header>
             )}

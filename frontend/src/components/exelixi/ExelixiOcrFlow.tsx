@@ -31,15 +31,6 @@ export function ExelixiOcrFlow({ phase, children, footer }: ExelixiOcrFlowProps)
               </p>
             </div>
           </div>
-          {/* TEMP: CTA ayuda oculta hasta nuevo aviso
-          <a
-            href="mailto:soporte@exelixitech.com?subject=Emision%20generica%20Exelixi"
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white/80 ring-1 ring-white/15 transition hover:bg-white/15"
-          >
-            <HelpCircle size={13} />
-            Ayuda
-          </a>
-          */}
         </div>
       </header>
 

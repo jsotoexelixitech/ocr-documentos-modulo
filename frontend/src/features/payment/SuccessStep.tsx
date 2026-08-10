@@ -3,7 +3,7 @@ import { Button } from '../../components/ui/Button';
 import { toast } from '../../store/toastStore';
 import {
   CheckCircle2, Download, RefreshCw, ShieldCheck,
-  Calendar, Share2, Copy, ExternalLink,
+  Calendar, Copy, ExternalLink,
 } from 'lucide-react';
 import { formatUsdShort } from '../../lib/money';
 
@@ -31,49 +31,18 @@ export function SuccessStep() {
     }
   };
 
-  const shareDocuments = () => {
-    const lines = [
-      `Póliza: ${policyNum}`,
-      reciboNum ? `Recibo: ${reciboNum}` : '',
-      `Titular: ${holder}`,
-      '',
-      'Documentos:',
-      pdfUrl ? `Cuadro póliza / recibo: ${pdfUrl}` : 'Cuadro póliza: no disponible',
-    ].filter(Boolean).join('\n');
-
-    const subject = encodeURIComponent(`Póliza RCV ${policyNum} — La Mundial de Seguros`);
-    const body = encodeURIComponent(lines);
-    const to = encodeURIComponent((tomador.email || '').trim());
-    const mailto = `mailto:${to}?subject=${subject}&body=${body}`;
-
-    const openMailto = () => {
-      window.location.href = mailto;
-      toast.success(
-        'Abriendo correo',
-        'Se preparó un mensaje con los enlaces de los documentos.',
-        3500,
-      );
-    };
-
-    if (typeof navigator.share === 'function') {
-      void navigator
-        .share({
-          title: `Póliza ${policyNum}`,
-          text: lines,
-          ...(pdfUrl ? { url: pdfUrl } : {}),
-        })
-        .catch(() => openMailto());
-      return;
-    }
-
-    openMailto();
-  };
-
-  /** En OCR el Paso 01 es local: reset + step 1. */
+  /** OCR local: reset total al Paso 01 Documentos. */
   const emitAnotherPolicy = () => {
     reset();
     goTo(1);
-    toast.info('Nueva emisión', 'Vuelves al Paso 01 — Documentos.');
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('wizardStep', '1');
+      url.searchParams.delete('sid');
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      /* ignore */
+    }
   };
 
   const downloadPdf = () => {
@@ -221,14 +190,6 @@ export function SuccessStep() {
         >
           <Download size={15} />
           Descargar PDF
-        </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={shareDocuments}
-        >
-          <Share2 size={15} />
-          Compartir
         </Button>
       </div>
 
