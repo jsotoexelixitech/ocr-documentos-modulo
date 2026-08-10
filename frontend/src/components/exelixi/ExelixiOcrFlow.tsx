@@ -1,4 +1,4 @@
-import { FileText, Layers, HelpCircle } from 'lucide-react';
+import { FileText, Layers } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { publicAsset } from '../../lib/app-base';
 import '../../styles/exelixi-catalog.css';
@@ -31,6 +31,7 @@ export function ExelixiOcrFlow({ phase, children, footer }: ExelixiOcrFlowProps)
               </p>
             </div>
           </div>
+          {/* TEMP: CTA ayuda oculta hasta nuevo aviso
           <a
             href="mailto:soporte@exelixitech.com?subject=Emision%20generica%20Exelixi"
             className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white/80 ring-1 ring-white/15 transition hover:bg-white/15"
@@ -38,6 +39,7 @@ export function ExelixiOcrFlow({ phase, children, footer }: ExelixiOcrFlowProps)
             <HelpCircle size={13} />
             Ayuda
           </a>
+          */}
         </div>
       </header>
 

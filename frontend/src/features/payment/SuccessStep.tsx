@@ -8,7 +8,7 @@ import {
 import { formatUsdShort } from '../../lib/money';
 
 export function SuccessStep() {
-  const { policy, tomador, selectedPlan, reset } = useWizardStore();
+  const { policy, tomador, selectedPlan, reset, goTo } = useWizardStore();
 
   const holder = [tomador.nombre, tomador.apellido].filter(Boolean).join(' ') || 'Cliente';
   const policyNum = policy?.cnpoliza || policy?.number || 'LM-2026-000000';
@@ -29,6 +29,51 @@ export function SuccessStep() {
     } catch {
       toast.error('No se pudo copiar', 'Intenta de nuevo o copia manualmente.');
     }
+  };
+
+  const shareDocuments = () => {
+    const lines = [
+      `Póliza: ${policyNum}`,
+      reciboNum ? `Recibo: ${reciboNum}` : '',
+      `Titular: ${holder}`,
+      '',
+      'Documentos:',
+      pdfUrl ? `Cuadro póliza / recibo: ${pdfUrl}` : 'Cuadro póliza: no disponible',
+    ].filter(Boolean).join('\n');
+
+    const subject = encodeURIComponent(`Póliza RCV ${policyNum} — La Mundial de Seguros`);
+    const body = encodeURIComponent(lines);
+    const to = encodeURIComponent((tomador.email || '').trim());
+    const mailto = `mailto:${to}?subject=${subject}&body=${body}`;
+
+    const openMailto = () => {
+      window.location.href = mailto;
+      toast.success(
+        'Abriendo correo',
+        'Se preparó un mensaje con los enlaces de los documentos.',
+        3500,
+      );
+    };
+
+    if (typeof navigator.share === 'function') {
+      void navigator
+        .share({
+          title: `Póliza ${policyNum}`,
+          text: lines,
+          ...(pdfUrl ? { url: pdfUrl } : {}),
+        })
+        .catch(() => openMailto());
+      return;
+    }
+
+    openMailto();
+  };
+
+  /** En OCR el Paso 01 es local: reset + step 1. */
+  const emitAnotherPolicy = () => {
+    reset();
+    goTo(1);
+    toast.info('Nueva emisión', 'Vuelves al Paso 01 — Documentos.');
   };
 
   const downloadPdf = () => {
@@ -180,13 +225,7 @@ export function SuccessStep() {
         <Button
           variant="secondary"
           size="lg"
-          onClick={() => {
-            if (navigator.share) {
-              navigator.share({ title: 'Mi póliza', text: `Póliza ${policyNum}` }).catch(() => {});
-            } else {
-              toast.warning('No disponible', 'Tu navegador no soporta compartir nativamente.');
-            }
-          }}
+          onClick={shareDocuments}
         >
           <Share2 size={15} />
           Compartir
@@ -195,7 +234,8 @@ export function SuccessStep() {
 
       <div className="text-center">
         <button
-          onClick={() => reset()}
+          type="button"
+          onClick={emitAnotherPolicy}
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-indigo-600 transition-colors font-semibold"
         >
           <RefreshCw size={13} />
