@@ -10,8 +10,8 @@ import { applyExelixiBranding } from './lib/exelixi-branding'
 // Identidad Exélixi (colores + favicon) solo si el flujo activo es el catálogo.
 applyExelixiBranding('OCR de Documentos');
 
-// Enrutamiento simple: /config → panel de configuración, resto → app normal.
-const isConfigRoute = window.location.pathname === '/config';
+// /config (dev) o /ocr/config (prod con prefijo Apache)
+const isConfigRoute = /\/config\/?$/.test(window.location.pathname);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
