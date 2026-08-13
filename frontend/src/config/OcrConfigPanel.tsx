@@ -7,8 +7,10 @@ import {
 } from 'lucide-react';
 import { AuroraBackground } from '../components/AuroraBackground';
 import { VisualTemplateBuilder } from './VisualTemplateBuilder';
+import { readConfigPanelContext } from './configPanelContext';
 
-const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
+const PANEL_CTX = readConfigPanelContext();
+const EMPRESA_ID = PANEL_CTX.empresaId;
 
 interface DocField {
   key: string;
@@ -147,6 +149,16 @@ export function OcrConfigPanel() {
               <p className="text-slate-500 text-sm mt-2 max-w-xl leading-relaxed">
                 Configura los documentos requeridos para extracción automática y mapeo a la API.
               </p>
+              <div className="mt-3 inline-flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  canal: {PANEL_CTX.canal}
+                </span>
+                {PANEL_CTX.cproductor && (
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200">
+                    cproductor: {PANEL_CTX.cproductor}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 grid place-items-center shadow-lg shadow-indigo-500/20">
               <Settings2 size={24} className="text-white" />
