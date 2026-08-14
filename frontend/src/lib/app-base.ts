@@ -11,12 +11,30 @@ export function moduleApiBase(): string {
 /**
  * URL pública de un upload OCR (`/files/empresa/archivo`).
  * En cierrelmds/nexusqa la app vive bajo `/ocr/`; sin prefijo Apache responde 404 en `/files/...`.
+ * Idempotente: no duplica `/ocr/` si ya viene prefijada (api + modal).
  */
 export function resolveUploadFileUrl(url: string | undefined | null): string {
   if (!url) return '';
   if (/^https?:\/\//i.test(url)) return url;
-  const path = url.startsWith('/') ? url.slice(1) : url;
-  return `${normalizedBase()}${path}`;
+
+  const base = normalizedBase();
+  const baseRoot = base === './' ? '' : base.replace(/\/$/, '');
+  let path = url.startsWith('/') ? url : `/${url}`;
+
+  if (baseRoot) {
+    const segment = baseRoot.replace(/^\//, '');
+    const dupPrefix = `${baseRoot}/${segment}/`;
+    if (path.startsWith(dupPrefix)) {
+      path = `${baseRoot}/${path.slice(dupPrefix.length)}`;
+    }
+  }
+
+  if (baseRoot && (path === baseRoot || path.startsWith(`${baseRoot}/`))) {
+    return path;
+  }
+
+  const clean = path.startsWith('/') ? path.slice(1) : path;
+  return `${base}${clean}`;
 }
 
 /**
