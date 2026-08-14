@@ -16,26 +16,36 @@ const MODULE_NEXUS_API: [string, string][] = [
   ['/pagos', '/pagos/nexus-api'],
 ];
 
-function httpsModuleNexusApiBase(): string {
+function resolveModuleNexusApiOnHttps(): string | null {
+  if (typeof window === 'undefined' || window.location.protocol !== 'https:') {
+    return null;
+  }
   const path = window.location.pathname.replace(/\/$/, '') || '/';
   for (const [prefix, apiPath] of MODULE_NEXUS_API) {
     if (path === prefix || path.startsWith(`${prefix}/`)) {
       return `${window.location.origin}${apiPath}`;
     }
   }
-  return `${window.location.origin}/nexus-api`;
+  return null;
+}
+
+function useModuleProxyBuild(): boolean {
+  const flag = import.meta.env.VITE_NEXUS_USE_MODULE_PROXY;
+  return flag === '1' || flag === 'true';
 }
 
 /**
- * Resuelve la URL de nexus-api en el navegador (dev + QA, mismo bundle).
- *
- * 1. VITE_NEXUS_API_URL HTTPS pública (ej. cierrelmds …/nexus-api) → se usa tal cual.
- * 2. HTTPS sin URL pública → {/ocr|/formulario|/emision|/pagos}/nexus-api
- *    (vite preview → 127.0.0.1:3092; no depende de Apache /nexus-api/).
- * 3. HTTP local → VITE_NEXUS_API_URL o localhost:3092.
+ * Resuelve nexus-api en el navegador.
+ * QA (VITE_NEXUS_USE_MODULE_PROXY=1): {módulo}/nexus-api → vite preview → :3092.
+ * Dev: VITE_NEXUS_API_URL de .env.production (Apache /nexus-api/).
  */
 export function resolveNexusApiUrl(configured?: string): string {
-  const trimmed = configured?.trim().replace(/\/$/, '');
+  const moduleOnHttps = resolveModuleNexusApiOnHttps();
+  if (moduleOnHttps && useModuleProxyBuild()) {
+    return moduleOnHttps;
+  }
+
+  const trimmed = configured?.trim().replace(/\/$/, '') ?? '';
   const pageIsHttps =
     typeof window !== 'undefined' && window.location.protocol === 'https:';
 
@@ -43,7 +53,7 @@ export function resolveNexusApiUrl(configured?: string): string {
     return trimmed;
   }
   if (pageIsHttps && typeof window !== 'undefined') {
-    return httpsModuleNexusApiBase();
+    return moduleOnHttps ?? `${window.location.origin}/nexus-api`;
   }
   if (trimmed) return trimmed;
   return 'http://localhost:3092';
