@@ -39,6 +39,15 @@ type ProxyRoutes = Record<
  * QA / entornos sin Apache `/nexus-api/` correcto: proxy local vía vite preview
  * (mismo patrón que admin `/admin/api` → :3092). Montaje: `{prefix}/nexus-api`.
  */
+function nexusProxyEntry(mount: string, nexusTarget: string) {
+  const escaped = mount.replace(/\//g, '\\/');
+  return {
+    target: nexusTarget,
+    changeOrigin: true,
+    rewrite: (p: string) => p.replace(new RegExp(`^${escaped}`), '') || '/',
+  };
+}
+
 export function withNexusPreviewProxy(
   proxy: ProxyRoutes,
   modulePublicPrefix: string,
@@ -47,17 +56,12 @@ export function withNexusPreviewProxy(
   const prefix = modulePublicPrefix.replace(/\/$/, '');
   if (!prefix) return proxy;
 
-  const mount = `${prefix}/nexus-api`;
-  const escaped = mount.replace(/\//g, '\\/');
-
-  return {
-    ...proxy,
-    [mount]: {
-      target: nexusTarget,
-      changeOrigin: true,
-      rewrite: (p: string) => p.replace(new RegExp(`^${escaped}`), '') || '/',
-    },
-  };
+  const out = { ...proxy };
+  // Ruta pública: /ocr/nexus-api/...
+  out[`${prefix}/nexus-api`] = nexusProxyEntry(`${prefix}/nexus-api`, nexusTarget);
+  // Apache strip /ocr/ → vite preview ve /nexus-api/... (srv001qa)
+  out['/nexus-api'] = nexusProxyEntry('/nexus-api', nexusTarget);
+  return out;
 }
 
 /** Prefija rutas de proxy cuando la app se sirve bajo un subpath. */
