@@ -271,13 +271,14 @@ chmod +x scripts/build-env-nexus.sh
 cat > scripts/build-cierrelmds.sh << 'ENDOFFILE'
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(dirname "$0")/.."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/build-env-nexus.sh"
 cd "$ROOT/frontend"
 unset PORT VITE_APP_BASE VITE_EMISSION_CONTINUE_BASE PRODUCT_BUILDER 2>/dev/null || true
 export VITE_APP_BASE=/ocr/
 export VITE_DEPLOY_PREFIX=/ocr
 export VITE_FORMULARIO_CONTINUE_BASE=/formulario
-source "$(dirname "$0")/build-env-nexus.sh"
 echo "Build OCR VITE_APP_BASE=${VITE_APP_BASE} VITE_DEPLOY_PREFIX=${VITE_DEPLOY_PREFIX}"
 npm run build
 echo ""
