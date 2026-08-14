@@ -8,22 +8,44 @@ const STORAGE_KEY = 'nexus_access_token_ocr';
 
 const INTERNAL_HTTP_RE = /^http:\/\/(192\.168\.|10\.|127\.0\.0\.1|localhost)(:\d+)?/i;
 
+/** Prefijos Apache → proxy Nexus en vite preview (QA sin tocar `/nexus-api/` global). */
+const MODULE_NEXUS_API: [string, string][] = [
+  ['/ocr', '/ocr/nexus-api'],
+  ['/formulario', '/formulario/nexus-api'],
+  ['/emision', '/emision/nexus-api'],
+  ['/pagos', '/pagos/nexus-api'],
+];
+
+function httpsModuleNexusApiBase(): string {
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  for (const [prefix, apiPath] of MODULE_NEXUS_API) {
+    if (path === prefix || path.startsWith(`${prefix}/`)) {
+      return `${window.location.origin}${apiPath}`;
+    }
+  }
+  return `${window.location.origin}/nexus-api`;
+}
+
 /**
- * Resuelve la URL de nexus-api en el navegador.
- * En páginas HTTPS no se puede llamar a IP interna HTTP (mixed content).
+ * Resuelve la URL de nexus-api en el navegador (dev + QA, mismo bundle).
+ *
+ * 1. VITE_NEXUS_API_URL HTTPS pública (ej. cierrelmds …/nexus-api) → se usa tal cual.
+ * 2. HTTPS sin URL pública → {/ocr|/formulario|/emision|/pagos}/nexus-api
+ *    (vite preview → 127.0.0.1:3092; no depende de Apache /nexus-api/).
+ * 3. HTTP local → VITE_NEXUS_API_URL o localhost:3092.
  */
 export function resolveNexusApiUrl(configured?: string): string {
   const trimmed = configured?.trim().replace(/\/$/, '');
   const pageIsHttps =
     typeof window !== 'undefined' && window.location.protocol === 'https:';
 
-  if (pageIsHttps && trimmed && INTERNAL_HTTP_RE.test(trimmed)) {
-    return `${window.location.origin}/nexus-api`;
+  if (trimmed && !INTERNAL_HTTP_RE.test(trimmed)) {
+    return trimmed;
+  }
+  if (pageIsHttps && typeof window !== 'undefined') {
+    return httpsModuleNexusApiBase();
   }
   if (trimmed) return trimmed;
-  if (typeof window !== 'undefined' && pageIsHttps) {
-    return `${window.location.origin}/nexus-api`;
-  }
   return 'http://localhost:3092';
 }
 

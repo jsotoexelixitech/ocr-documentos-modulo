@@ -1,7 +1,12 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { prefixDevProxy, resolveAppBase } from './vite-paths'
+import {
+  prefixDevProxy,
+  resolveAppBase,
+  resolvePublicModulePrefix,
+  withNexusPreviewProxy,
+} from './vite-paths'
 import { spaPreviewFallback } from './vite-spa-preview'
 
 export default defineConfig(({ mode }) => {
@@ -11,17 +16,24 @@ export default defineConfig(({ mode }) => {
 
   // Mismo mapa de proxy para el dev server (`vite`) y para `vite preview`
   // (producción sirve el build con preview, que NO hereda `server.proxy`).
-  const proxy = prefixDevProxy(base, {
-    // OCR propio
-    '/api/documents': { target: 'http://localhost:4001', changeOrigin: true },
-    // Catálogos valrep/INMA se obtienen desde el backend del formulario (4002)
-    '/api/valrep': { target: 'http://localhost:4002', changeOrigin: true },
-    '/api/catalogo': { target: 'http://localhost:4002', changeOrigin: true },
-    '/api': { target: 'http://localhost:4001', changeOrigin: true },
-    '/files': { target: 'http://localhost:4001', changeOrigin: true },
-    '/docs': { target: 'http://localhost:4001', changeOrigin: true },
-    '/docs.json': { target: 'http://localhost:4001', changeOrigin: true },
-  }, env.VITE_DEPLOY_PREFIX)
+  const modulePrefix = resolvePublicModulePrefix(env, base) || '/ocr';
+  const nexusTarget = env.VITE_NEXUS_API_PROXY || 'http://127.0.0.1:3092';
+
+  const proxy = withNexusPreviewProxy(
+    prefixDevProxy(base, {
+      // OCR propio
+      '/api/documents': { target: 'http://localhost:4001', changeOrigin: true },
+      // Catálogos valrep/INMA se obtienen desde el backend del formulario (4002)
+      '/api/valrep': { target: 'http://localhost:4002', changeOrigin: true },
+      '/api/catalogo': { target: 'http://localhost:4002', changeOrigin: true },
+      '/api': { target: 'http://localhost:4001', changeOrigin: true },
+      '/files': { target: 'http://localhost:4001', changeOrigin: true },
+      '/docs': { target: 'http://localhost:4001', changeOrigin: true },
+      '/docs.json': { target: 'http://localhost:4001', changeOrigin: true },
+    }, env.VITE_DEPLOY_PREFIX),
+    modulePrefix,
+    nexusTarget,
+  )
 
   return {
     base,
