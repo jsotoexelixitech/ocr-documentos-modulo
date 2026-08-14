@@ -8,6 +8,7 @@ import {
   withNexusPreviewProxy,
 } from './vite-paths'
 import { spaPreviewFallback } from './vite-spa-preview'
+import { nexusPreviewProxyPlugin } from './vite-nexus-preview-proxy'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -37,7 +38,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
-    plugins: [react(), tailwindcss(), spaPreviewFallback(base)],
+    plugins: [
+      nexusPreviewProxyPlugin(modulePrefix, nexusTarget),
+      react(),
+      tailwindcss(),
+      spaPreviewFallback(base),
+    ],
     server: {
       host: true,
       port: 5181,
