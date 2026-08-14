@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type { DocType, OcrResult, DocumentFile } from '../types';
-import { moduleApiBase } from './app-base';
+import { moduleApiBase, resolveUploadFileUrl } from './app-base';
 
 const api = axios.create({ baseURL: moduleApiBase() });
 
@@ -75,7 +75,11 @@ export async function uploadDocument(
       },
     });
 
-    return response.data;
+    const data = response.data;
+    if (data.file?.url) {
+      data.file = { ...data.file, url: resolveUploadFileUrl(data.file.url) };
+    }
+    return data;
   } catch (err) {
     const axErr = err as AxiosError<{
       code?: string;

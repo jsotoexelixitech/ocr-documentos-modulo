@@ -5,6 +5,7 @@ import {
   ZoomIn, ZoomOut, RotateCcw, ScanLine,
 } from 'lucide-react';
 import type { DocumentFile } from '../types';
+import { resolveUploadFileUrl } from '../lib/app-base';
 
 interface Props {
   open: boolean;
@@ -49,6 +50,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
 
   if (!open || !file) return null;
 
+  const fileUrl = resolveUploadFileUrl(file.url);
   const kind = getFileKind(file.mimeType);
   const sizeKb = (file.size / 1024).toFixed(1);
 
@@ -123,7 +125,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
             )}
 
             <a
-              href={file.url}
+              href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:inline-flex w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 items-center justify-center transition-colors"
@@ -132,7 +134,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
               <ExternalLink size={15} />
             </a>
             <a
-              href={file.url}
+              href={fileUrl}
               download={file.name}
               className="hidden sm:inline-flex w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 items-center justify-center transition-colors"
               aria-label="Descargar"
@@ -155,7 +157,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
           <div className="min-h-full w-full grid place-items-center p-4 sm:p-8">
             {kind === 'image' && (
               <img
-                src={file.url}
+                src={fileUrl}
                 alt={file.name}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                 className="max-w-full h-auto rounded-xl shadow-[0_20px_60px_-12px_rgba(15,23,42,0.25)] ring-1 ring-slate-200 transition-transform duration-200"
@@ -164,7 +166,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
 
             {kind === 'pdf' && (
               <iframe
-                src={file.url}
+                src={fileUrl}
                 title={file.name}
                 className="w-full h-[75vh] sm:h-[80vh] rounded-xl shadow-[0_20px_60px_-12px_rgba(15,23,42,0.25)] ring-1 ring-slate-200 bg-white"
               />
@@ -183,7 +185,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
                   permite vista previa en el navegador.
                 </p>
                 <a
-                  href={file.url}
+                  href={fileUrl}
                   download={file.name}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white text-xs font-bold shadow-[0_8px_22px_rgba(15,26,90,0.32)] transition-all"
                 >
@@ -203,7 +205,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
           </div>
           <div className="flex items-center gap-2 sm:hidden">
             <a
-              href={file.url}
+              href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-600 items-center justify-center"
@@ -212,7 +214,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
               <ExternalLink size={14} />
             </a>
             <a
-              href={file.url}
+              href={fileUrl}
               download={file.name}
               className="inline-flex w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-600 items-center justify-center"
               aria-label="Descargar"

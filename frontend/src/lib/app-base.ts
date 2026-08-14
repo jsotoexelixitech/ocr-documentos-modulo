@@ -9,6 +9,17 @@ export function moduleApiBase(): string {
 }
 
 /**
+ * URL pública de un upload OCR (`/files/empresa/archivo`).
+ * En cierrelmds/nexusqa la app vive bajo `/ocr/`; sin prefijo Apache responde 404 en `/files/...`.
+ */
+export function resolveUploadFileUrl(url: string | undefined | null): string {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  const path = url.startsWith('/') ? url.slice(1) : url;
+  return `${normalizedBase()}${path}`;
+}
+
+/**
  * Ruta de un archivo en `public/` respetando el prefijo de despliegue.
  * Ej. publicAsset('logo.png') → `/ocr/logo.png` cuando base es `/ocr/`.
  */
