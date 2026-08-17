@@ -14,10 +14,15 @@ export interface OcrFields {
   placa?: string;
   marca?: string;
   modelo?: string;
+  linea?: string;
   anio?: string;
   año?: string;
   serial?: string;
+  serialMotor?: string;
+  cilindrada?: string;
   color?: string;
+  tipoCarnet?: 'nacional' | 'binacional';
+  tipoPlaca?: 'nacional' | 'extranjera' | 'binacional';
   rif?: string;
   razonSocial?: string;
   fechaNacimiento?: string;
@@ -61,14 +66,46 @@ function getModuleTokenKey(): string {
   return 'nexus_access_token_ocr';
 }
 
+function isLocalHost(): boolean {
+  return typeof window !== 'undefined'
+    && /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+}
+
+function encodeHandoffForUrl(handoff: ExelixiOcrHandoff): string {
+  const json = JSON.stringify(handoff);
+  const bytes = new TextEncoder().encode(json);
+  let binary = '';
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
 /** Siguiente paso: módulo formulario (misma cadena que La Mundial, rama Exélixi). */
 export function getFormularioContinueUrl(): string {
   const configured = import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined;
-  const base = (configured?.replace(/\/$/, '') || '/formulario').replace(/\/$/, '');
-  const params = new URLSearchParams({ flow: 'exelixi-catalog' });
+  let base = (configured?.replace(/\/$/, '') || '/formulario').replace(/\/$/, '');
+
+  // Solo local: si no hay base absoluta, el front OCR vive en :5181 y Formulario en :5182.
+  if (isLocalHost() && (!configured || configured.startsWith('/'))) {
+    base = 'http://localhost:5182';
+  }
+
+  const params = new URLSearchParams();
 
   try {
     const current = new URL(window.location.href);
+    const flow = current.searchParams.get('flow');
+    const product =
+      current.searchParams.get('product')
+      || sessionStorage.getItem('exelixi_product')
+      || 'rcv';
+
+    // Conservar flujo Exélixi solo si ya venía así. La Mundial usa ?product=rcv|funerario.
+    if (flow === 'exelixi-catalog' || flow === 'exelixi') {
+      params.set('flow', 'exelixi-catalog');
+    } else {
+      params.set('product', product);
+    }
+
     const sid = current.searchParams.get('sid');
     const nexusToken =
       current.searchParams.get('nexus_token')
@@ -76,7 +113,7 @@ export function getFormularioContinueUrl(): string {
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
   } catch {
-    /* ignore */
+    params.set('product', 'rcv');
   }
 
   return `${base}/?${params.toString()}`;
@@ -95,7 +132,20 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
     return;
   }
 
-  window.location.href = getFormularioContinueUrl();
+  let url = getFormularioContinueUrl();
+
+  // Solo local cross-port: sessionStorage no se comparte entre :5181 y :5182.
+  if (isLocalHost()) {
+    try {
+      const u = new URL(url, window.location.origin);
+      u.searchParams.set('ocr_handoff', encodeHandoffForUrl(handoff));
+      url = u.toString();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  window.location.href = url;
 }
 
 /** @deprecated Usar continueToFormularioModule — product-builder es solo catálogo admin. */

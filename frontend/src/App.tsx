@@ -70,6 +70,18 @@ export default function App() {
   }, [setMetadataCanal]);
 
   const isSuccess = step === 2;
+  const isLocalDev = /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+
+  /** Solo desarrollo local: la pantalla de éxito no avanza sola sin bridge/Apache. */
+  function continueLocalToFormulario() {
+    continueToFormularioModule(
+      buildOcrHandoff(
+        builderProduct?.id ?? product.id,
+        documents,
+        builderProduct ?? undefined,
+      ),
+    );
+  }
 
   function handleContinuar() {
     let requiredDocs = product.docs.required;
@@ -171,6 +183,12 @@ export default function App() {
             <div className="flex flex-col items-center justify-center gap-4 py-12">
               <CheckCircle2 size={48} className="text-emerald-500" />
               <h2 className="text-2xl font-black text-[#091133]">Documentos procesados</h2>
+              {isLocalDev && (
+                <Button variant="primary" onClick={continueLocalToFormulario} className="min-w-[200px] btn-shine">
+                  Continuar al formulario
+                  <ChevronRight size={15} />
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => goTo(1)}>
                 Volver a escanear
               </Button>
@@ -283,6 +301,12 @@ export default function App() {
                     <p className="text-slate-500 text-sm text-center max-w-sm">
                       El OCR completó la lectura. Los datos han sido precargados exitosamente.
                     </p>
+                    {isLocalDev && (
+                      <Button variant="primary" onClick={continueLocalToFormulario} className="mt-2 min-w-[200px] btn-shine">
+                        Continuar al formulario
+                        <ChevronRight size={15} />
+                      </Button>
+                    )}
                     <Button variant="secondary" onClick={() => goTo(1)} className="mt-2">
                       Volver a escanear
                     </Button>

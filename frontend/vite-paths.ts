@@ -32,7 +32,7 @@ export function resolvePublicModulePrefix(
 
 type ProxyRoutes = Record<
   string,
-  { target: string; changeOrigin?: boolean; rewrite?: (path: string) => string }
+  { target: string; changeOrigin?: boolean; rewrite?: (path: string) => string; secure?: boolean }
 >;
 
 /**
@@ -41,10 +41,23 @@ type ProxyRoutes = Record<
  */
 function nexusProxyEntry(mount: string, nexusTarget: string) {
   const escaped = mount.replace(/\//g, '\\/');
+  const rawTarget = nexusTarget.replace(/\/$/, '');
+  // Remoto tipo https://host/nexus-api: el path público del módulo es /nexus-api/*,
+  // pero el origen del proxy debe ser solo el host y reinyectar /nexus-api.
+  const targetHasNexusPath = /\/nexus-api$/i.test(rawTarget);
+  const target = targetHasNexusPath
+    ? rawTarget.replace(/\/nexus-api$/i, '')
+    : rawTarget;
+
   return {
-    target: nexusTarget,
+    target,
     changeOrigin: true,
-    rewrite: (p: string) => p.replace(new RegExp(`^${escaped}`), '') || '/',
+    secure: true,
+    rewrite: (p: string) => {
+      const stripped = p.replace(new RegExp(`^${escaped}`), '') || '/';
+      if (!targetHasNexusPath) return stripped;
+      return stripped === '/' ? '/nexus-api' : `/nexus-api${stripped}`;
+    },
   };
 }
 
