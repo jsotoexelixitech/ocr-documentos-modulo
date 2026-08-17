@@ -18,6 +18,7 @@ import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
 import { AnimatedCounter } from '../../components/ui/AnimatedCounter';
 import { DocumentPreviewModal } from '../../components/DocumentPreviewModal';
+import { resolveOcrModelo, resolveOcrTipoPlaca } from '../../lib/vehicle-carnet-labels';
 import type { DocType, DocumentFile } from '../../types';
 
 interface DocConfig {
@@ -542,22 +543,18 @@ export function OcrStep() {
       // lleva certificado de vehículo.
       const cert = hasVehicle ? documents.certificado.ocr : undefined;
       if (cert) {
-        const binacional = rcvLaMundial && cert.tipoCarnet === 'binacional';
+        const tipoPlaca = rcvLaMundial ? resolveOcrTipoPlaca(cert) : 'nacional';
         setVehicle({
           placa: cert.placa ?? '',
           marca: cert.marca ?? '',
-          modelo: cert.modelo ?? cert.linea ?? '',
+          modelo: resolveOcrModelo(cert),
           año: cert.año ?? '',
           color: cert.color ?? '',
           serial: cert.serial ?? '',
           serialMotor: cert.serialMotor ?? '',
-          cilindrada: rcvLaMundial ? cert.cilindrada ?? '' : '',
-          tipoCarnet: rcvLaMundial ? cert.tipoCarnet : undefined,
-          tipoPlaca: binacional
-            ? 'binacional'
-            : cert.tipoPlaca === 'extranjera'
-              ? 'extranjera'
-              : 'nacional',
+          cilindrada: rcvLaMundial && tipoPlaca === 'binacional' ? cert.cilindrada ?? '' : '',
+          tipoCarnet: rcvLaMundial ? (tipoPlaca === 'binacional' ? 'binacional' : 'nacional') : undefined,
+          tipoPlaca,
         });
       }
       setOcrDone(true);

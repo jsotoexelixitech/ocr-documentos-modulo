@@ -167,13 +167,26 @@ function normalizeCertificadoFields(fields) {
     fields.anio ?? fields['año'] ?? fields.añoModelo ?? fields.anoModelo ?? '',
   ).trim();
   const anioIsYear = /^(19|20)\d{2}$/.test(anioCandidate);
-  // Colombia: LINEA (T800, 320I…) + MODELO es el año. No usar VIN/motor (también existen en VE).
-  const hasColombianLayout = Boolean(linea) && (modeloIsYear || anioIsYear);
+
+  /** Señales exclusivas del carnet INTT venezolano — anulan clasificación binacional. */
+  const isVenezuelanIntt =
+    tipoRaw === 'nacional' ||
+    Boolean(String(fields.referenciaModelo || '').trim()) ||
+    Boolean(String(fields.tipoVehiculo || '').trim()) ||
+    Boolean(String(fields.claseUso || '').trim());
+
+  // Colombia: LINEA + campo MODELO con el año (4 dígitos). NO basta linea + anio sueltos (común en VE).
+  const hasColombianLayout =
+    !isVenezuelanIntt &&
+    Boolean(linea) &&
+    modeloIsYear;
+
   const isBinacional =
-    tipoRaw === 'binacional' ||
-    tipoRaw === 'colombia' ||
-    tipoRaw === 'colombiano' ||
-    hasColombianLayout;
+    !isVenezuelanIntt &&
+    (tipoRaw === 'binacional' ||
+      tipoRaw === 'colombia' ||
+      tipoRaw === 'colombiano' ||
+      hasColombianLayout);
 
   // Unificar aliases que Gemini pueda devolver
   if (fields.vin && !fields.serial) fields.serial = fields.vin;
@@ -311,6 +324,10 @@ function normalizeCertificadoFields(fields) {
   if (modelo && isVehicleClassOrTypeLabel(modelo)) modelo = null;
 
   fields.modelo = modelo ? String(modelo).toUpperCase() : null;
+
+  // linea y cilindrada son campos Colombia; en INTT no aplican
+  delete fields.linea;
+  fields.cilindrada = null;
 
   if (fields.placa) {
     fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();

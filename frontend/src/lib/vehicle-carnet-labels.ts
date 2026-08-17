@@ -43,3 +43,19 @@ export function resolveOcrModelo(cert?: {
   }
   return '';
 }
+
+export function resolveOcrTipoPlaca(cert?: {
+  tipoCarnet?: string;
+  tipoPlaca?: string;
+  referenciaModelo?: string;
+  tipoVehiculo?: string;
+  claseUso?: string;
+} | null): 'nacional' | 'extranjera' | 'binacional' {
+  if (!cert) return 'nacional';
+  if (cert.referenciaModelo || cert.tipoVehiculo || cert.claseUso) return 'nacional';
+  if (cert.tipoCarnet === 'nacional') return 'nacional';
+  if (cert.tipoCarnet === 'binacional') return 'binacional';
+  if (cert.tipoPlaca === 'extranjera') return 'extranjera';
+  if (cert.tipoPlaca === 'binacional') return 'binacional';
+  return 'nacional';
+}
