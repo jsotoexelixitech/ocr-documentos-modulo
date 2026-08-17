@@ -97,10 +97,20 @@ function normalizeCertificadoFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
 
   const tipoRaw = String(fields.tipoCarnet || fields.tipo_carnet || '').toLowerCase();
+  const linea = String(fields.linea || '').trim();
+  const modeloRaw = String(fields.modelo || '').trim();
+  const modeloIsYear = /^(19|20)\d{2}$/.test(modeloRaw);
+  const anioCandidate = String(
+    fields.anio ?? fields['año'] ?? fields.añoModelo ?? fields.anoModelo ?? '',
+  ).trim();
+  const anioIsYear = /^(19|20)\d{2}$/.test(anioCandidate);
+  // Colombia: LINEA (T800, 320I…) + MODELO es el año. No usar VIN/motor (también existen en VE).
+  const hasColombianLayout = Boolean(linea) && (modeloIsYear || anioIsYear);
   const isBinacional =
     tipoRaw === 'binacional' ||
     tipoRaw === 'colombia' ||
-    tipoRaw === 'colombiano';
+    tipoRaw === 'colombiano' ||
+    hasColombianLayout;
 
   // Unificar aliases que Gemini pueda devolver
   if (fields.vin && !fields.serial) fields.serial = fields.vin;
@@ -111,15 +121,14 @@ function normalizeCertificadoFields(fields) {
     fields.tipoCarnet = 'binacional';
     fields.tipoPlaca = 'binacional';
 
-    const linea = String(fields.linea || '').trim();
-    const modeloRaw = String(fields.modelo || '').trim();
+    const lineaVal = linea || String(fields.linea || '').trim();
+    const modeloField = modeloRaw;
     // Si "modelo" parece un año (4 dígitos), úsalo como año y prioriza LINEA como modelo
-    const modeloIsYear = /^(19|20)\d{2}$/.test(modeloRaw);
-    let yearCandidate = fields.anio ?? fields['año'];
+    let yearCandidate = fields.anio ?? fields['año'] ?? fields.añoModelo ?? fields.anoModelo;
     if ((yearCandidate == null || yearCandidate === '') && modeloIsYear) {
-      yearCandidate = modeloRaw;
+      yearCandidate = modeloField;
     }
-    fields.modelo = (linea || (!modeloIsYear ? modeloRaw : '') || null);
+    fields.modelo = (lineaVal || (!modeloIsYear ? modeloField : '') || null);
     if (fields.modelo) fields.modelo = String(fields.modelo).toUpperCase();
 
     if (yearCandidate != null && yearCandidate !== '') {
@@ -155,6 +164,8 @@ function normalizeCertificadoFields(fields) {
     }
 
     delete fields.anio;
+    delete fields.añoModelo;
+    delete fields.anoModelo;
     delete fields.vin;
     delete fields.numeroMotor;
     delete fields.numero_motor;
@@ -369,8 +380,14 @@ const SCHEMAS = {
         description:
           'Ano del vehiculo en 4 digitos (ej. "2025"). ' +
           'Venezuela INTT: esquina INFERIOR DERECHA AAAA/AAAA — usa el primer ano. ' +
-          'Colombia: campo etiquetado MODELO (es el ano, NO la linea). ' +
+          'Colombia: campo MODELO o AÑO MODELO (es el ano, NO la linea). ' +
           'NO uses numeros tras "/" en la linea del modelo venezolano (ej. "BR200-2 / 22").',
+      },
+      añoModelo: {
+        type: Type.STRING,
+        description:
+          'Solo Colombia semirremolque/remolque: valor del campo AÑO MODELO (4 digitos). ' +
+          'En automoviles/camiones usa "anio" desde el campo MODELO.',
       },
       serial: {
         type: Type.STRING,
@@ -456,16 +473,19 @@ const PROMPTS = {
     '=== SI tipoCarnet=nacional (Venezuela) === ' +
     'ANO: esquina INFERIOR DERECHA AAAA/AAAA; solo el primer ano. ' +
     'NUNCA uses el numero tras "/" en la linea del MODELO (ej. "BR200-2 / 22"). ' +
-    'MODELO: codigo completo bajo la marca (ej. "BR200-2"). linea y cilindrada y serialMotor: null. ' +
+    'MODELO: codigo completo bajo la marca (ej. "BR200-2", "COROLLA"). linea=null, cilindrada=null. ' +
     'serial: serial de carroceria. Extrae COLOR si aparece. ' +
     '=== SI tipoCarnet=binacional (Colombia) === ' +
-    'PLACA = campo PLACA / No. DE PLACA. ' +
-    'linea = campo LINEA (equivale al modelo comercial: X5000, T800, 320I…). ' +
-    'anio = campo MODELO (en Colombia MODELO es el ANO en 4 digitos, ej. 2023). ' +
-    'marca = MARCA. color = COLOR si existe. ' +
+    'Ejemplos reales: KENWORTH LINEA T800 MODELO 2007 PLACA SWK284; BMW LINEA 320I MODELO 2020 PLACA GSZ050; ' +
+    'SHACMAN LINEA X5000 MODELO 2023 PLACA WON028; CHEVROLET LINEA LUV MODELO 1996 PLACA VXG421; ' +
+    'RANDON semirremolque LINEA "SR PT CS 03" AÑO MODELO 2022 PLACA S63228. ' +
+    'PLACA = campo PLACA / No. DE PLACA (ej. SWK284, GSZ050, WON028). ' +
+    'linea = campo LINEA (modelo comercial: T800, X5000, 320I, LUV, SR PT CS 03…). ' +
+    'anio = campo MODELO o AÑO MODELO (en Colombia MODELO es el ANO en 4 digitos, ej. 2023). ' +
+    'marca = MARCA. color = COLOR (ej. NEGRO, PLATA, GRIS METALIZADO). ' +
     'serial = VIN, o NÚMERO DE IDENTIFICACIÓN / NÚMERO DE CHASIS / NÚMERO DE SERIE (prioriza VIN). ' +
     'serialMotor = NÚMERO DE MOTOR (null en remolques/semirremolques). ' +
-    'cilindrada = CILINDRADA CC tal cual (ej. "13.000"). ' +
+    'cilindrada = CILINDRADA CC tal cual (ej. "13.000", "1.998"; null en remolques). ' +
     'Si un valor esta enmascarado con ****** usa null. ' +
     'NO confundas la LICENCIA DE TRANSITO colombiana con la licencia de conducir venezolana.',
   rif:
