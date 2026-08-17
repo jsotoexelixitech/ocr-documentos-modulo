@@ -10,8 +10,7 @@ import {
 import { toast } from '../../store/toastStore';
 import { cn } from '../../lib/utils';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
-import { useBuilderCatalog } from '../../lib/builder-catalog';
-import { getProductId, isRcvLaMundialFlow } from '../../lib/product';
+import { isRcvLaMundialFlow } from '../../lib/product';
 import type { VehicleData } from '../../types';
 
 const COLOR_SWATCHES: Record<string, string> = {
@@ -136,7 +135,6 @@ export function VehicleStep() {
 
   const [errors, setErrors] = useState<VehicleErrors>({});
   const [verified, setVerified] = useState(false);
-  const exelixiFlow = useBuilderCatalog();
   const rcvLaMundial = isRcvLaMundialFlow();
   const isRcvEmision = rcvLaMundial;
 

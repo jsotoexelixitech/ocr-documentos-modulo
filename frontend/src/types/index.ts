@@ -27,8 +27,14 @@ export interface OcrResult {
   placa?: string;
   marca?: string;
   modelo?: string;
+  /** Alias usado por OCR carnet binacional (Colombia). */
+  linea?: string;
   año?: string;
   serial?: string;
+  serialMotor?: string;
+  cilindrada?: string;
+  tipoCarnet?: 'nacional' | 'binacional';
+  tipoPlaca?: 'nacional' | 'extranjera' | 'binacional';
   color?: string;
   rif?: string;
   razonSocial?: string | null;
