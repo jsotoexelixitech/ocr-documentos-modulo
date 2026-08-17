@@ -84,6 +84,69 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** Etiquetas de tipo/clase en carnet INTT (Venezuela) — NO son modelo comercial. */
+const VE_CARNET_CLASS_LABELS = new Set([
+  'PASEO', 'CARGA', 'PARTICULAR', 'PUBLICO', 'OFICIAL', 'DIPLOMATICO',
+  'SPORT WAGON', 'SPORTWAGON', 'STATION WAGON', 'FURGON', 'RUSTICO',
+  'MOTO PARTICULAR', 'CAMIONETA PARTICULAR', 'AUTOMOVIL PARTICULAR',
+  'PICK UP', 'PICKUP', 'PICK-UP', 'BUS', 'CAMION', 'REMOLQUE', 'SEMIRREMOLQUE',
+  'TURISMO', 'TAXI', 'RURAL', 'UTILITARIO', 'MICROBUS', 'MINIBUS',
+  'CUATRIMOTO', 'TRANSPORTE', 'TRACCION SALVAJE',
+]);
+
+function normalizeCarnetLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isVehicleClassOrTypeLabel(value) {
+  const v = normalizeCarnetLabel(value);
+  if (!v) return false;
+  if (VE_CARNET_CLASS_LABELS.has(v)) return true;
+  if (/\b(PARTICULAR|PUBLICO|OFICIAL)\b/.test(v) && !/\d/.test(v)) return true;
+  if (!/\d/.test(v) && (v === 'PASEO' || v === 'CARGA' || v.endsWith(' WAGON'))) return true;
+  return false;
+}
+
+function stripModelSuffix(raw) {
+  return String(raw || '').replace(/\s*\/\s*\d{1,2}\s*$/u, '').trim();
+}
+
+/** Extrae código de modelo desde la línea del carnet (ej. "BR200-2 / 22" → "BR200-2"). */
+function extractModelFromReference(raw) {
+  const s = String(raw || '').trim();
+  if (!s || isVehicleClassOrTypeLabel(s)) return '';
+
+  const stripped = stripModelSuffix(s);
+  if (isVehicleClassOrTypeLabel(stripped)) return '';
+
+  const slashLine = s.match(/^([A-Za-z0-9][A-Za-z0-9-]*(?:\d+[A-Za-z0-9-]*)?)\s*\/\s*\d{1,2}$/);
+  if (slashLine) return stripModelSuffix(s).toUpperCase();
+
+  const codeMatch = s.match(/\b([A-Za-z]{1,6}\d{0,4}(?:-\d+)?|[0-9]*[A-Za-z]{2,}[A-Za-z0-9-]*)\b/);
+  if (codeMatch && !isVehicleClassOrTypeLabel(codeMatch[1])) {
+    return stripModelSuffix(codeMatch[1]).toUpperCase();
+  }
+
+  if (/^[A-Z0-9][A-Z0-9-]{1,}$/i.test(stripped)) {
+    return stripped.toUpperCase();
+  }
+  return '';
+}
+
+function pickBestModeloCandidate(...candidates) {
+  for (const c of candidates) {
+    if (c == null || c === '') continue;
+    const m = extractModelFromReference(c);
+    if (m) return m;
+  }
+  return null;
+}
+
 /**
  * Normaliza campos del carnet vehicular (Venezuela INTT o Colombia binacional).
  *
@@ -220,12 +283,34 @@ function normalizeCertificadoFields(fields) {
   const codeMatch = modeloRaw.match(/\b([A-Za-z]{1,4}\d{2,4}(?:-\d+)?)\b/);
   const fromLine = codeMatch ? codeMatch[1].replace(/\s*\/\s*\d{1,2}\s*$/u, '').trim() : '';
 
-  const geminiModelo = String(fields.modelo || '').trim();
-  let modelo = strippedModelo || geminiModelo;
-  if (fromLine.length > modelo.length) modelo = fromLine;
-  if (geminiModelo.length > modelo.length) modelo = geminiModelo;
+  if (fields.tipoVehiculo) fields.tipoVehiculo = normalizeCarnetLabel(fields.tipoVehiculo);
+  if (fields.claseUso) fields.claseUso = normalizeCarnetLabel(fields.claseUso);
 
-  fields.modelo = modelo ? modelo.toUpperCase() : null;
+  // Gemini a veces pone PASEO / SPORT WAGON / MOTO PARTICULAR en "modelo"
+  if (isVehicleClassOrTypeLabel(modeloRaw)) {
+    const label = normalizeCarnetLabel(modeloRaw);
+    if (!fields.claseUso && (label === 'PASEO' || label === 'CARGA' || label.endsWith(' WAGON'))) {
+      fields.claseUso = label;
+    } else if (!fields.tipoVehiculo) {
+      fields.tipoVehiculo = label;
+    } else if (!fields.claseUso) {
+      fields.claseUso = label;
+    }
+  }
+
+  let modelo =
+    pickBestModeloCandidate(
+      fields.referenciaModelo,
+      fields.referencia,
+      linea,
+      isVehicleClassOrTypeLabel(modeloRaw) ? null : modeloRaw,
+    ) ||
+    pickBestModeloCandidate(fromLine, strippedModelo) ||
+    null;
+
+  if (modelo && isVehicleClassOrTypeLabel(modelo)) modelo = null;
+
+  fields.modelo = modelo ? String(modelo).toUpperCase() : null;
 
   if (fields.placa) {
     fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();
@@ -393,6 +478,24 @@ const SCHEMAS = {
         description: 'Placa del vehiculo, sin espacios ni guiones (ej. AE123KT o WON028)',
       },
       marca: { type: Type.STRING, description: 'Marca o fabricante del vehiculo (ej. BERA, BMW, SHACMAN)' },
+      referenciaModelo: {
+        type: Type.STRING,
+        description:
+          'Solo Venezuela INTT: linea de referencia bajo la marca tal como aparece ' +
+          '(ej. "BR200-2 / 22", "4RUNNER"). NO confundir con PASEO ni tipo de vehiculo.',
+      },
+      tipoVehiculo: {
+        type: Type.STRING,
+        description:
+          'Solo Venezuela INTT: tipo impreso en el carnet (ej. "MOTO PARTICULAR", ' +
+          '"CAMIONETA PARTICULAR"). NO es el modelo comercial.',
+      },
+      claseUso: {
+        type: Type.STRING,
+        description:
+          'Solo Venezuela INTT: clase o uso (ej. "PASEO", "CARGA", "SPORT WAGON"). ' +
+          'NUNCA va en "modelo" ni "referenciaModelo".',
+      },
       linea: {
         type: Type.STRING,
         description:
@@ -402,7 +505,9 @@ const SCHEMAS = {
       modelo: {
         type: Type.STRING,
         description:
-          'Venezuela: codigo completo del modelo bajo la marca (ej. "BR200-2" desde "BR200-2 / 22"). ' +
+          'Venezuela INTT: codigo comercial bajo la marca (ej. "BR200-2", "4RUNNER", "COROLLA"). ' +
+          'Usa referenciaModelo si la linea trae sufijo "/ 22". ' +
+          'PROHIBIDO: PASEO, CARGA, SPORT WAGON, MOTO PARTICULAR, CAMIONETA PARTICULAR — esos van en claseUso/tipoVehiculo. ' +
           'Colombia: NO pongas aqui el ano; el ano va en "anio". Si no hay LINEA separada, ' +
           'puedes repetir la linea aqui; preferible llenar "linea".',
       },
@@ -505,10 +610,15 @@ const PROMPTS = {
     '"binacional" si es Colombia (LICENCIA DE TRANSITO o TARJETA DE REGISTRO DE REMOLQUE/SEMIRREMOLQUE ' +
     'del Ministerio de Transporte / Republica de Colombia). ' +
     'La placa debe ir sin espacios ni guiones. ' +
-    '=== SI tipoCarnet=nacional (Venezuela) === ' +
+    '=== SI tipoCarnet=nacional (Venezuela INTT) === ' +
+    'Layout vertical del carnet: (1) cedula + MARCA en la misma fila; ' +
+    '(2) CODIGO MODELO en la fila siguiente (ej. "BR200-2 / 22", "4RUNNER") — usar referenciaModelo y modelo; ' +
+    '(3) TIPO: "MOTO PARTICULAR", "CAMIONETA PARTICULAR" → tipoVehiculo; ' +
+    '(4) CLASE: "PASEO", "SPORT WAGON", "CARGA" → claseUso. ' +
+    'NUNCA pongas PASEO, CARGA, SPORT WAGON ni "* PARTICULAR" en modelo. ' +
     'ANO: esquina INFERIOR DERECHA AAAA/AAAA; solo el primer ano. ' +
-    'NUNCA uses el numero tras "/" en la linea del MODELO (ej. "BR200-2 / 22"). ' +
-    'MODELO: codigo completo bajo la marca (ej. "BR200-2", "COROLLA"). linea=null, cilindrada=null. ' +
+    'NUNCA uses el numero tras "/" en la linea del MODELO (ej. "BR200-2 / 22" → modelo "BR200-2"). ' +
+    'MODELO/referenciaModelo: codigo comercial (ej. "BR200-2", "4RUNNER", "COROLLA"). linea=null, cilindrada=null. ' +
     'serial: serial de carroceria. Extrae COLOR si aparece. ' +
     '=== SI tipoCarnet=binacional (Colombia) === ' +
     'Ejemplos reales: KENWORTH LINEA T800 MODELO 2007 PLACA SWK284; BMW LINEA 320I MODELO 2020 PLACA GSZ050; ' +

@@ -11,6 +11,7 @@ import { toast } from '../../store/toastStore';
 import { cn } from '../../lib/utils';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
 import { isRcvLaMundialFlow } from '../../lib/product';
+import { resolveOcrModelo } from '../../lib/vehicle-carnet-labels';
 import type { VehicleData } from '../../types';
 
 const COLOR_SWATCHES: Record<string, string> = {
@@ -225,7 +226,7 @@ export function VehicleStep() {
     if (!modelos.length) return;
     if (autoSelectedModelo.current) return;
     if (vehicle.cmodelo) return;
-    const ocrModelText = String(ocrCert?.modelo ?? ocrCert?.linea ?? '').trim();
+    const ocrModelText = resolveOcrModelo(ocrCert);
     if (!ocrModelText) return;
 
     const match = findBestMatch(modelos, ocrModelText, 'xmodelo' as keyof InmaModelo);
