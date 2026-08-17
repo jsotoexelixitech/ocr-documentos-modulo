@@ -542,9 +542,7 @@ export function OcrStep() {
       // lleva certificado de vehículo.
       const cert = hasVehicle ? documents.certificado.ocr : undefined;
       if (cert) {
-        const binacional =
-          rcvLaMundial
-          && (cert.tipoPlaca === 'binacional' || cert.tipoCarnet === 'binacional');
+        const binacional = rcvLaMundial && cert.tipoCarnet === 'binacional';
         setVehicle({
           placa: cert.placa ?? '',
           marca: cert.marca ?? '',

@@ -97,12 +97,10 @@ function normalizeCertificadoFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
 
   const tipoRaw = String(fields.tipoCarnet || fields.tipo_carnet || '').toLowerCase();
-  const hasLinea = Boolean(String(fields.linea || '').trim());
   const isBinacional =
     tipoRaw === 'binacional' ||
     tipoRaw === 'colombia' ||
-    tipoRaw === 'colombiano' ||
-    (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
+    tipoRaw === 'colombiano';
 
   // Unificar aliases que Gemini pueda devolver
   if (fields.vin && !fields.serial) fields.serial = fields.vin;

@@ -225,9 +225,10 @@ export function VehicleStep() {
     if (!modelos.length) return;
     if (autoSelectedModelo.current) return;
     if (vehicle.cmodelo) return;
-    if (!ocrCert?.modelo) return;
+    const ocrModelText = String(ocrCert?.modelo ?? ocrCert?.linea ?? '').trim();
+    if (!ocrModelText) return;
 
-    const match = findBestMatch(modelos, ocrCert.modelo, 'xmodelo' as keyof InmaModelo);
+    const match = findBestMatch(modelos, ocrModelText, 'xmodelo' as keyof InmaModelo);
     if (match) {
       autoSelectedModelo.current = true;
       setVehicle({ cmodelo: match.cmodelo, modelo: match.xmodelo, cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
@@ -236,13 +237,13 @@ export function VehicleStep() {
       if (isRcvEmision) {
         toast.warning(
           'Modelo no encontrado',
-          `No encontramos "${ocrCert.modelo}" en el catálogo. Comunícate con soporte para continuar.`,
+          `No encontramos "${ocrModelText}" en el catálogo. Comunícate con soporte para continuar.`,
           7000,
         );
       } else {
         toast.warning(
           'Modelo no encontrado',
-          `No encontramos "${ocrCert.modelo}" en el catálogo. Selecciónalo manualmente.`,
+          `No encontramos "${ocrModelText}" en el catálogo. Selecciónalo manualmente.`,
           5000,
         );
       }
