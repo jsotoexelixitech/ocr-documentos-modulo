@@ -1,4 +1,5 @@
 ﻿import { Fragment, useState, useRef } from 'react';
+import { formatTelefono, isValidPhonePrefix } from '../../lib/phone';
 import { useWizardStore } from '../../store/wizardStore';
 import { Field, Input, Select, Textarea } from '../../components/ui/FormField';
 import { IdentityInput } from '../../components/ui/IdentityInput';
@@ -87,10 +88,6 @@ interface ValidationErrors {
 }
 
 const emailRe   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** Limpia el telefono: solo digitos, maximo 11 */
-function formatTelefono(raw: string): string {
-  return raw.replace(/\D/g, '').slice(0, 11);
-}
 
 /** Solo letras, tildes, ñ y espacios */
 function onlyLetters(v: string): string {
@@ -149,7 +146,9 @@ export function EmissionStep() {
     if (req(tomador.telefono)) {
       e.telefono = 'El teléfono es obligatorio';
     } else if (digs(tomador.telefono) !== 11) {
-      e.telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567 · 04221234567)';
+      e.telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567)';
+    } else if (!isValidPhonePrefix(tomador.telefono || '')) {
+      e.telefono = 'El prefijo no es válido (Digitel 0412/0422 · Movistar 0414/0424 · Movilnet 0416/0426 · fijos 02XX)';
     }
 
     if (req(tomador.email)) {
@@ -212,7 +211,9 @@ export function EmissionStep() {
       if (req(pagador.telefono)) {
         e.pag_telefono = 'El teléfono del pagador es obligatorio';
       } else if (digs(pagador.telefono) !== 11) {
-        e.pag_telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567 · 04221234567)';
+        e.pag_telefono = 'El teléfono debe tener exactamente 11 dígitos (ej. 04121234567)';
+      } else if (!isValidPhonePrefix(pagador.telefono || '')) {
+        e.pag_telefono = 'El prefijo no es válido (Digitel 0412/0422 · Movistar 0414/0424 · Movilnet 0416/0426 · fijos 02XX)';
       }
 
       const pagEmail = (pagador.email ?? '').trim();
@@ -290,9 +291,9 @@ export function EmissionStep() {
       </Field>
     ),
     telefono: (
-      <Field label="Teléfono *" error={errors.telefono} hint="11 dígitos · Movilnet 0412/0416 · Movistar 0414/0424 · Digitel 0412/0422">
+      <Field label="Teléfono *" error={errors.telefono} hint="11 dígitos · Digitel 0412/0422 · Movistar 0414/0424 · Movilnet 0416/0426 · fijos 02XX">
         <Input
-          value={tomador.telefono}
+          value={formatTelefono(tomador.telefono ?? '')}
           onChange={(e) => setTomador({ telefono: formatTelefono(e.target.value) })}
           placeholder="04121234567"
           type="tel"
@@ -494,9 +495,9 @@ export function EmissionStep() {
                   onIdentificacionChange={(v) => setPagador({ identificacion: v })}
                 />
               </Field>
-              <Field label="Teléfono del pagador *" error={errors.pag_telefono} hint="11 dígitos · 0412/0416/0422/0424/0426">
+              <Field label="Teléfono del pagador *" error={errors.pag_telefono} hint="Digitel 0412/0422 · Movistar 0414/0424 · Movilnet 0416/0426 · fijos 02XX">
                 <Input
-                  value={pagador.telefono ?? ''}
+                  value={formatTelefono(pagador.telefono ?? '')}
                   onChange={(e) => setPagador({ telefono: formatTelefono(e.target.value) })}
                   placeholder="04121234567"
                   type="tel"
