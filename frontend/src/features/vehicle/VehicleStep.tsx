@@ -11,7 +11,7 @@ import { toast } from '../../store/toastStore';
 import { cn } from '../../lib/utils';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
 import { useBuilderCatalog } from '../../lib/builder-catalog';
-import { getProductId } from '../../lib/product';
+import { getProductId, isRcvLaMundialFlow } from '../../lib/product';
 import type { VehicleData } from '../../types';
 
 const COLOR_SWATCHES: Record<string, string> = {
@@ -137,7 +137,8 @@ export function VehicleStep() {
   const [errors, setErrors] = useState<VehicleErrors>({});
   const [verified, setVerified] = useState(false);
   const exelixiFlow = useBuilderCatalog();
-  const isRcvEmision = !exelixiFlow && getProductId() === 'rcv';
+  const rcvLaMundial = isRcvLaMundialFlow();
+  const isRcvEmision = rcvLaMundial;
 
   // Rango de años del catálogo INMA
   const [anios, setAnios] = useState<number[]>([]);
@@ -526,6 +527,7 @@ export function VehicleStep() {
                   >
                     Extranjera
                   </button>
+                  {rcvLaMundial && (
                   <button
                     type="button"
                     onClick={() => setVehicle({ tipoPlaca: 'binacional' })}
@@ -538,6 +540,7 @@ export function VehicleStep() {
                   >
                     Binacional
                   </button>
+                  )}
                 </span>
               </span> as unknown as string
             }
@@ -850,6 +853,7 @@ export function VehicleStep() {
             />
           </Field>
 
+          {rcvLaMundial && (
           <Field label="Cilindrada (CC)" hint="Opcional · Del carnet binacional colombiano">
             <Input
               value={vehicle.cilindrada ?? ''}
@@ -859,6 +863,7 @@ export function VehicleStep() {
               maxLength={20}
             />
           </Field>
+          )}
         </div>
 
         {/* Vista previa de placa */}

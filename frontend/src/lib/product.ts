@@ -9,6 +9,7 @@
  * Si no se especifica, el producto por defecto es `rcv` (comportamiento previo).
  */
 import type { DocType, ProductId } from '../types';
+import { isExelixiCatalogEntryPath } from './builder-catalog';
 
 export interface ProductDocsConfig {
   required: DocType[];
@@ -111,4 +112,18 @@ export function getProductId(): ProductId {
 
 export function getProductConfig(): ProductConfig {
   return PRODUCTS[getProductId()];
+}
+
+/** RCV La Mundial. Excluye catálogo genérico Exélixi. */
+export function isRcvLaMundialFlow(): boolean {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const flow = params.get('flow');
+    if (flow === 'exelixi-catalog' || flow === 'exelixi') return false;
+    if (params.get('product') === 'funerario') return false;
+    if (isExelixiCatalogEntryPath()) return false;
+  } catch {
+    /* ignore */
+  }
+  return getProductId() === 'rcv';
 }

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
-import { getProductConfig } from '../../lib/product';
+import { getProductConfig, isRcvLaMundialFlow } from '../../lib/product';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
@@ -473,6 +473,7 @@ export function OcrStep() {
 
   // Producto activo y configuración desde Nexus
   const product = getProductConfig();
+  const rcvLaMundial = isRcvLaMundialFlow();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const hasVehicle = builderProduct
     ? branchHasVehicle(builderProduct.branch)
@@ -541,6 +542,9 @@ export function OcrStep() {
       // lleva certificado de vehículo.
       const cert = hasVehicle ? documents.certificado.ocr : undefined;
       if (cert) {
+        const binacional =
+          rcvLaMundial
+          && (cert.tipoPlaca === 'binacional' || cert.tipoCarnet === 'binacional');
         setVehicle({
           placa: cert.placa ?? '',
           marca: cert.marca ?? '',
@@ -549,14 +553,13 @@ export function OcrStep() {
           color: cert.color ?? '',
           serial: cert.serial ?? '',
           serialMotor: cert.serialMotor ?? '',
-          cilindrada: cert.cilindrada ?? '',
-          tipoCarnet: cert.tipoCarnet,
-          tipoPlaca:
-            cert.tipoPlaca === 'binacional' || cert.tipoCarnet === 'binacional'
-              ? 'binacional'
-              : cert.tipoPlaca === 'extranjera'
-                ? 'extranjera'
-                : 'nacional',
+          cilindrada: rcvLaMundial ? cert.cilindrada ?? '' : '',
+          tipoCarnet: rcvLaMundial ? cert.tipoCarnet : undefined,
+          tipoPlaca: binacional
+            ? 'binacional'
+            : cert.tipoPlaca === 'extranjera'
+              ? 'extranjera'
+              : 'nacional',
         });
       }
       setOcrDone(true);
@@ -569,6 +572,7 @@ export function OcrStep() {
     documents.certificado.ocr,
     catalogs.sexos,
     catalogs.estadosCivil,
+    rcvLaMundial,
     setTomador,
     setVehicle,
     setOcrDone,
