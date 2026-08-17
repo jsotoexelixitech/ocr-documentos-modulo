@@ -1,5 +1,6 @@
 import type { Connect, Plugin } from 'vite';
 import http from 'node:http';
+import https from 'node:https';
 import { URL } from 'node:url';
 
 /**
@@ -12,6 +13,7 @@ export function nexusPreviewProxyPlugin(
 ): Plugin {
   const prefix = modulePrefix.replace(/\/$/, '');
   const mounts = [`${prefix}/nexus-api`, '/nexus-api'];
+  const targetBase = target.replace(/\/$/, '');
 
   const attach = (middlewares: Connect.Server) => {
     middlewares.use((req, res, next) => {
@@ -27,15 +29,20 @@ export function nexusPreviewProxyPlugin(
       const qs = raw.includes('?') ? raw.slice(raw.indexOf('?')) : '';
       let dest: URL;
       try {
-        dest = new URL(`${rest}${qs}`, target);
+        // No usar new URL(absolutePath, base): un path que empieza con "/"
+        // reemplaza todo el pathname del target (pierde /nexus-api).
+        dest = new URL(`${targetBase}${rest}${qs}`);
       } catch {
         res.statusCode = 502;
         res.end('Bad Gateway');
         return;
       }
 
+      const transport = dest.protocol === 'https:' ? https : http;
       const headers = { ...req.headers, host: dest.host };
-      const proxyReq = http.request(
+      delete headers['accept-encoding'];
+
+      const proxyReq = transport.request(
         dest,
         { method: req.method, headers },
         (proxyRes) => {

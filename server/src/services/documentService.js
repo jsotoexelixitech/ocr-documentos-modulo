@@ -77,6 +77,8 @@ function simulateOcr(docType) {
       anio: '2020',
       serial: 'VIN20TOYCO2020001',
       color: 'Plateado',
+      tipoCarnet: 'nacional',
+      tipoPlaca: 'nacional',
     },
     rif: {
       rif: 'J-40123456-7',

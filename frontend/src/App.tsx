@@ -71,6 +71,16 @@ export default function App() {
 
   const isSuccess = step === 2;
 
+  function advanceToFormulario() {
+    continueToFormularioModule(
+      buildOcrHandoff(
+        builderProduct?.id ?? product.id,
+        documents,
+        builderProduct ?? undefined,
+      ),
+    );
+  }
+
   function handleContinuar() {
     let requiredDocs = product.docs.required;
 
@@ -87,9 +97,7 @@ export default function App() {
       }
 
       toast.success('Documentos listos', 'Continuando con el formulario de emisión…', 1200);
-      continueToFormularioModule(
-        buildOcrHandoff(builderProduct.id, documents, builderProduct),
-      );
+      advanceToFormulario();
       return;
     }
 
@@ -116,8 +124,19 @@ export default function App() {
       );
       return;
     }
+
+    // Flujo actual: pantalla de éxito → desde ahí se redirige al Formulario.
     nextStep();
   }
+
+  // Pantalla de éxito (paso 2): redirigir al Formulario (mismo handoff que Formulario → Emisión).
+  useEffect(() => {
+    if (!isSuccess) return;
+    if (builderCatalogMode) return; // Exélixi ya avanza en handleContinuar
+    const t = window.setTimeout(() => advanceToFormulario(), 900);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess]);
 
   if (builderCatalogMode) {
     if (showCatalogPicker) {
@@ -171,6 +190,11 @@ export default function App() {
             <div className="flex flex-col items-center justify-center gap-4 py-12">
               <CheckCircle2 size={48} className="text-emerald-500" />
               <h2 className="text-2xl font-black text-[#091133]">Documentos procesados</h2>
+              <p className="text-sm text-slate-500">Redirigiendo al formulario…</p>
+              <Button variant="primary" onClick={advanceToFormulario} className="min-w-[200px] btn-shine">
+                Continuar
+                <ChevronRight size={15} />
+              </Button>
               <Button variant="secondary" onClick={() => goTo(1)}>
                 Volver a escanear
               </Button>
@@ -283,7 +307,12 @@ export default function App() {
                     <p className="text-slate-500 text-sm text-center max-w-sm">
                       El OCR completó la lectura. Los datos han sido precargados exitosamente.
                     </p>
-                    <Button variant="secondary" onClick={() => goTo(1)} className="mt-2">
+                    <p className="text-slate-400 text-xs">Redirigiendo al formulario…</p>
+                    <Button variant="primary" onClick={advanceToFormulario} className="mt-2 min-w-[200px] btn-shine">
+                      Continuar
+                      <ChevronRight size={15} />
+                    </Button>
+                    <Button variant="secondary" onClick={() => goTo(1)} className="mt-1">
                       Volver a escanear
                     </Button>
                   </div>

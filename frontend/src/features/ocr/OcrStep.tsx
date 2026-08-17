@@ -544,10 +544,19 @@ export function OcrStep() {
         setVehicle({
           placa: cert.placa ?? '',
           marca: cert.marca ?? '',
-          modelo: cert.modelo ?? '',
+          modelo: cert.modelo ?? cert.linea ?? '',
           año: cert.año ?? '',
           color: cert.color ?? '',
           serial: cert.serial ?? '',
+          serialMotor: cert.serialMotor ?? '',
+          cilindrada: cert.cilindrada ?? '',
+          tipoCarnet: cert.tipoCarnet,
+          tipoPlaca:
+            cert.tipoPlaca === 'binacional' || cert.tipoCarnet === 'binacional'
+              ? 'binacional'
+              : cert.tipoPlaca === 'extranjera'
+                ? 'extranjera'
+                : 'nacional',
         });
       }
       setOcrDone(true);

@@ -10,6 +10,8 @@ import {
 import { toast } from '../../store/toastStore';
 import { cn } from '../../lib/utils';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
+import { useBuilderCatalog } from '../../lib/builder-catalog';
+import { getProductId } from '../../lib/product';
 import type { VehicleData } from '../../types';
 
 const COLOR_SWATCHES: Record<string, string> = {
@@ -134,6 +136,8 @@ export function VehicleStep() {
 
   const [errors, setErrors] = useState<VehicleErrors>({});
   const [verified, setVerified] = useState(false);
+  const exelixiFlow = useBuilderCatalog();
+  const isRcvEmision = !exelixiFlow && getProductId() === 'rcv';
 
   // Rango de años del catálogo INMA
   const [anios, setAnios] = useState<number[]>([]);
@@ -196,6 +200,13 @@ export function VehicleStep() {
     if (match) {
       autoSelectedMarca.current = true;
       setVehicle({ cmarca: match.cmarca, marca: match.xmarca, cmodelo: '', modelo: '', cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
+    } else if (isRcvEmision) {
+      autoSelectedMarca.current = true;
+      toast.warning(
+        'Marca no encontrada',
+        `No encontramos "${ocrCert.marca}" en el catálogo. Comunícate con soporte para continuar.`,
+        7000,
+      );
     }
   // Solo cuando marcas cambia
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,12 +233,20 @@ export function VehicleStep() {
       autoSelectedModelo.current = true;
       setVehicle({ cmodelo: match.cmodelo, modelo: match.xmodelo, cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
     } else {
-      // Fallback: informar que no se encontró el modelo exacto
-      toast.warning(
-        'Modelo no encontrado',
-        `No encontramos "${ocrCert.modelo}" en el catálogo. Selecciónalo manualmente.`,
-        5000,
-      );
+      autoSelectedModelo.current = true;
+      if (isRcvEmision) {
+        toast.warning(
+          'Modelo no encontrado',
+          `No encontramos "${ocrCert.modelo}" en el catálogo. Comunícate con soporte para continuar.`,
+          7000,
+        );
+      } else {
+        toast.warning(
+          'Modelo no encontrado',
+          `No encontramos "${ocrCert.modelo}" en el catálogo. Selecciónalo manualmente.`,
+          5000,
+        );
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelos]);
@@ -477,7 +496,7 @@ export function VehicleStep() {
       <SectionCard Icon={Car} title="¿Cuál es tu vehículo?" description="Cuéntanos sobre el vehículo que deseas asegurar">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          {/* Placa con selector de tipo (Nacional / Extranjera) */}
+          {/* Placa con selector de tipo (Nacional / Extranjera / Binacional) */}
           <Field
             label={
               <span className="flex items-center justify-between gap-2 w-full">
@@ -487,25 +506,37 @@ export function VehicleStep() {
                     type="button"
                     onClick={() => setVehicle({ tipoPlaca: 'nacional' })}
                     className={cn(
-                      'px-2.5 py-1 rounded-md transition-all',
+                      'px-2 py-1 rounded-md transition-all',
                       vehicle.tipoPlaca === 'nacional'
                         ? 'bg-indigo-600 text-white shadow-sm'
                         : 'text-slate-500 hover:text-slate-700',
                     )}
                   >
-                    ✓ Nacional
+                    Nacional
                   </button>
                   <button
                     type="button"
                     onClick={() => setVehicle({ tipoPlaca: 'extranjera' })}
                     className={cn(
-                      'px-2.5 py-1 rounded-md transition-all',
+                      'px-2 py-1 rounded-md transition-all',
                       vehicle.tipoPlaca === 'extranjera'
                         ? 'bg-indigo-600 text-white shadow-sm'
                         : 'text-slate-500 hover:text-slate-700',
                     )}
                   >
                     Extranjera
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVehicle({ tipoPlaca: 'binacional' })}
+                    className={cn(
+                      'px-2 py-1 rounded-md transition-all',
+                      vehicle.tipoPlaca === 'binacional'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700',
+                    )}
+                  >
+                    Binacional
                   </button>
                 </span>
               </span> as unknown as string
@@ -515,9 +546,15 @@ export function VehicleStep() {
             <Input
               value={vehicle.placa}
               onChange={(e) => setVehicle({ placa: e.target.value.toUpperCase() })}
-              placeholder={vehicle.tipoPlaca === 'extranjera' ? 'ABC-1234' : 'AE123KT'}
+              placeholder={
+                vehicle.tipoPlaca === 'binacional'
+                  ? 'WON028'
+                  : vehicle.tipoPlaca === 'extranjera'
+                    ? 'ABC-1234'
+                    : 'AE123KT'
+              }
               className="uppercase font-mono tracking-wider"
-              maxLength={vehicle.tipoPlaca === 'extranjera' ? 12 : 8}
+              maxLength={vehicle.tipoPlaca === 'nacional' ? 8 : 12}
             />
           </Field>
 
@@ -810,6 +847,16 @@ export function VehicleStep() {
               placeholder="Ej. 4A123456789"
               className="font-mono uppercase tracking-wider"
               maxLength={60}
+            />
+          </Field>
+
+          <Field label="Cilindrada (CC)" hint="Opcional · Del carnet binacional colombiano">
+            <Input
+              value={vehicle.cilindrada ?? ''}
+              onChange={(e) => setVehicle({ cilindrada: e.target.value.slice(0, 20) })}
+              placeholder="Ej. 1.998"
+              className="font-mono tracking-wider"
+              maxLength={20}
             />
           </Field>
         </div>

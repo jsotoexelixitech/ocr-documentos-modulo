@@ -85,12 +85,87 @@ function sleep(ms) {
 }
 
 /**
- * Normaliza año y modelo del certificado INTT.
- * El año oficial va en la esquina inferior derecha como AAAA/AAAA (ej. 2025/2025),
- * NO en la línea del modelo (ej. "BR200-2 / 22").
+ * Normaliza campos del carnet vehicular (Venezuela INTT o Colombia binacional).
+ *
+ * Colombia (LICENCIA DE TRANSITO / TARJETA DE REGISTRO…):
+ *   - LINEA  → modelo (nombre de línea/versión)
+ *   - MODELO → año (4 dígitos)
+ *   - VIN / NÚMERO DE IDENTIFICACIÓN → serial
+ *   - NÚMERO DE MOTOR → serialMotor
  */
 function normalizeCertificadoFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
+
+  const tipoRaw = String(fields.tipoCarnet || fields.tipo_carnet || '').toLowerCase();
+  const hasLinea = Boolean(String(fields.linea || '').trim());
+  const isBinacional =
+    tipoRaw === 'binacional' ||
+    tipoRaw === 'colombia' ||
+    tipoRaw === 'colombiano' ||
+    (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
+
+  // Unificar aliases que Gemini pueda devolver
+  if (fields.vin && !fields.serial) fields.serial = fields.vin;
+  if (fields.numeroMotor && !fields.serialMotor) fields.serialMotor = fields.numeroMotor;
+  if (fields.numero_motor && !fields.serialMotor) fields.serialMotor = fields.numero_motor;
+
+  if (isBinacional) {
+    fields.tipoCarnet = 'binacional';
+    fields.tipoPlaca = 'binacional';
+
+    const linea = String(fields.linea || '').trim();
+    const modeloRaw = String(fields.modelo || '').trim();
+    // Si "modelo" parece un año (4 dígitos), úsalo como año y prioriza LINEA como modelo
+    const modeloIsYear = /^(19|20)\d{2}$/.test(modeloRaw);
+    let yearCandidate = fields.anio ?? fields['año'];
+    if ((yearCandidate == null || yearCandidate === '') && modeloIsYear) {
+      yearCandidate = modeloRaw;
+    }
+    fields.modelo = (linea || (!modeloIsYear ? modeloRaw : '') || null);
+    if (fields.modelo) fields.modelo = String(fields.modelo).toUpperCase();
+
+    if (yearCandidate != null && yearCandidate !== '') {
+      const yearStr = String(yearCandidate).match(/(?:19|20)\d{2}/)?.[0];
+      const añoNum = yearStr ? parseInt(yearStr, 10) : NaN;
+      const maxYear = new Date().getFullYear() + 1;
+      fields['año'] =
+        Number.isFinite(añoNum) && añoNum >= 1980 && añoNum <= maxYear
+          ? String(añoNum)
+          : null;
+    }
+
+    if (fields.serial) {
+      const s = String(fields.serial).trim().toUpperCase();
+      fields.serial = s.includes('*') || s === '' ? null : s;
+    }
+    if (fields.serialMotor) {
+      const s = String(fields.serialMotor).trim().toUpperCase();
+      fields.serialMotor = s.includes('*') || s === '' ? null : s;
+    }
+    if (fields.cilindrada != null && fields.cilindrada !== '') {
+      fields.cilindrada = String(fields.cilindrada).trim();
+    } else {
+      fields.cilindrada = null;
+    }
+    if (fields.placa) {
+      fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();
+    }
+    if (fields.marca) fields.marca = String(fields.marca).trim().toUpperCase();
+    if (fields.color) {
+      const c = String(fields.color).trim();
+      fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
+    }
+
+    delete fields.anio;
+    delete fields.vin;
+    delete fields.numeroMotor;
+    delete fields.numero_motor;
+    return fields;
+  }
+
+  // ── Nacional (Venezuela INTT) ────────────────────────────────────────────
+  fields.tipoCarnet = 'nacional';
+  fields.tipoPlaca = 'nacional';
 
   const modeloRaw = String(fields.modelo || '');
   let yearRaw = fields.anio ?? fields['año'];
@@ -144,6 +219,10 @@ function normalizeCertificadoFields(fields) {
 
   fields.modelo = modelo ? modelo.toUpperCase() : null;
 
+  if (fields.placa) {
+    fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();
+  }
+
   delete fields.anio;
   return fields;
 }
@@ -181,7 +260,8 @@ function validateCriticalFields(docType, fields) {
  * Headers oficiales que la IA debe reconocer:
  *   - cedula:      "REPUBLICA BOLIVARIANA DE VENEZUELA" + "CEDULA DE IDENTIDAD"
  *   - licencia:    "Licencia para Conducir" + INTT
- *   - certificado: "CERTIFICADO DE CIRCULACION" + INTT  (incluye TITULO de propiedad)
+ *   - certificado: INTT VE ("CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD")
+ *                  O Colombia ("LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE…")
  *   - rif:         "REGISTRO UNICO DE INFORMACION FISCAL" + SENIAT
  */
 const DOC_TYPE_PROP = {
@@ -190,8 +270,11 @@ const DOC_TYPE_PROP = {
   description:
     'Tipo de documento DETECTADO en la imagen, INDEPENDIENTE de lo que se haya pedido. ' +
     'Devuelve "cedula" si la imagen muestra "CEDULA DE IDENTIDAD". ' +
-    'Devuelve "licencia" si dice "Licencia para Conducir" (INTT). ' +
-    'Devuelve "certificado" si dice "CERTIFICADO DE CIRCULACION" o "TITULO DE PROPIEDAD" (INTT). ' +
+    'Devuelve "licencia" si dice "Licencia para Conducir" (INTT venezolano). ' +
+    'Devuelve "certificado" si es documento vehicular: ' +
+    '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
+    'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
+    '(Republica de Colombia / Ministerio de Transporte). ' +
     'Devuelve "rif" si dice "REGISTRO UNICO DE INFORMACION FISCAL" (SENIAT). ' +
     'Devuelve "desconocido" si no es ninguno de los anteriores.',
 };
@@ -256,40 +339,69 @@ const SCHEMAS = {
     type: Type.OBJECT,
     properties: {
       documentoTipo: DOC_TYPE_PROP,
+      tipoCarnet: {
+        type: Type.STRING,
+        enum: ['nacional', 'binacional'],
+        description:
+          'Variante del documento vehicular. "nacional" = Venezuela INTT ' +
+          '(CERTIFICADO DE CIRCULACION / TITULO DE PROPIEDAD). ' +
+          '"binacional" = Colombia Ministerio de Transporte ' +
+          '(LICENCIA DE TRANSITO / TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE).',
+      },
       placa: {
         type: Type.STRING,
-        description: 'Placa del vehiculo, sin espacios ni guiones',
+        description: 'Placa del vehiculo, sin espacios ni guiones (ej. AE123KT o WON028)',
       },
-      marca: { type: Type.STRING, description: 'Marca o fabricante del vehiculo (ej. BERA)' },
+      marca: { type: Type.STRING, description: 'Marca o fabricante del vehiculo (ej. BERA, BMW, SHACMAN)' },
+      linea: {
+        type: Type.STRING,
+        description:
+          'Solo Colombia binacional: valor del campo LINEA / LINEA (ej. X5000, T800, 320I, LUV). ' +
+          'En documentos venezolanos deja null.',
+      },
       modelo: {
         type: Type.STRING,
         description:
-          'Codigo completo del modelo en la linea bajo la marca (ej. "BR200-2" desde "BR200-2 / 22"). ' +
-          'Incluye letras y numeros; NO devuelvas solo el prefijo "BR" ni repitas la marca.',
+          'Venezuela: codigo completo del modelo bajo la marca (ej. "BR200-2" desde "BR200-2 / 22"). ' +
+          'Colombia: NO pongas aqui el ano; el ano va en "anio". Si no hay LINEA separada, ' +
+          'puedes repetir la linea aqui; preferible llenar "linea".',
       },
       anio: {
         type: Type.STRING,
         description:
-          'Ano del vehiculo en 4 digitos (ej. "2025"). En certificados INTT aparece en la ' +
-          'esquina INFERIOR DERECHA como AAAA/AAAA (ej. "2025/2025"); usa solo el primer ano. ' +
-          'NO uses numeros tras "/" en la linea del modelo (ej. "BR200-2 / 22" — el 22 NO es el ano).',
+          'Ano del vehiculo en 4 digitos (ej. "2025"). ' +
+          'Venezuela INTT: esquina INFERIOR DERECHA AAAA/AAAA — usa el primer ano. ' +
+          'Colombia: campo etiquetado MODELO (es el ano, NO la linea). ' +
+          'NO uses numeros tras "/" en la linea del modelo venezolano (ej. "BR200-2 / 22").',
       },
       serial: {
         type: Type.STRING,
-        description: 'Serial de carroceria (VIN) o serial del motor',
+        description:
+          'VIN / serial de carroceria. Venezuela: serial carroceria. ' +
+          'Colombia: campo VIN, o NÚMERO DE IDENTIFICACIÓN / NÚMERO DE CHASIS / NÚMERO DE SERIE. ' +
+          'Si aparece enmascarado con ****** devuelve null.',
+      },
+      serialMotor: {
+        type: Type.STRING,
+        description:
+          'Numero de motor. Colombia: NÚMERO DE MOTOR. Remolques/semirremolques suelen no tenerlo (null). ' +
+          'Si aparece ****** devuelve null.',
+      },
+      cilindrada: {
+        type: Type.STRING,
+        description:
+          'Cilindrada CC tal como aparece (ej. "13.000", "1.998", "2.300"). ' +
+          'Solo documentos colombianos con CILINDRADA CC. Remolques: null.',
       },
       color: {
         type: Type.STRING,
         description:
-          'Color principal de la carroceria del vehiculo tal como aparece en el documento ' +
-          '(ej: "Blanco", "Negro", "Rojo", "Plata", "Azul", "Gris", "Beige"). ' +
-          'Capitaliza la primera letra. Busca etiquetas como "COLOR", "Color de carroceria" ' +
-          'o similares dentro del CERTIFICADO DE CIRCULACION o TITULO DE PROPIEDAD. ' +
-          'Si aparecen dos colores separados por "/", devuelve el primero. ' +
-          'Si realmente no aparece ningun color en el documento, devuelve null.',
+          'Color principal de la carroceria (ej: "Blanco", "Negro", "Plata", "Azul"). ' +
+          'Capitaliza la primera letra. Si hay dos colores con "/", usa el primero. ' +
+          'Si no aparece, null.',
       },
     },
-    required: ['documentoTipo'],
+    required: ['documentoTipo', 'tipoCarnet'],
   },
 
   rif: {
@@ -312,8 +424,11 @@ const SCHEMAS = {
 const VALIDATION_PREAMBLE =
   'PASO 1 (OBLIGATORIO): Identifica el HEADER del documento y devuelve documentoTipo: ' +
   '"cedula" si ves "CEDULA DE IDENTIDAD" sobre tricolor venezolano; ' +
-  '"licencia" si ves "Licencia para Conducir" del INTT; ' +
-  '"certificado" si ves "CERTIFICADO DE CIRCULACION" o "TITULO DE PROPIEDAD" del INTT; ' +
+  '"licencia" si ves "Licencia para Conducir" del INTT venezolano; ' +
+  '"certificado" si ves documento de vehiculo: ' +
+  '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
+  'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
+  '(Republica de Colombia / Ministerio de Transporte); ' +
   '"rif" si ves "REGISTRO UNICO DE INFORMACION FISCAL" del SENIAT; ' +
   '"desconocido" en cualquier otro caso. ' +
   'PASO 2: Si y SOLO SI documentoTipo coincide con el tipo solicitado, extrae los demas campos. ' +
@@ -334,21 +449,27 @@ const PROMPTS = {
     'Pon especial atencion a la fecha de vencimiento y al grado o categoria.',
   certificado:
     VALIDATION_PREAMBLE +
-    'Tipo solicitado: CERTIFICADO DE CIRCULACION (RUST) o TITULO DE PROPIEDAD del vehiculo (INTT). ' +
+    'Tipo solicitado: DOCUMENTO VEHICULAR (carnet de circulacion). ' +
+    'Detecta la variante en tipoCarnet: ' +
+    '"nacional" si es Venezuela INTT (CERTIFICADO DE CIRCULACION / TITULO DE PROPIEDAD); ' +
+    '"binacional" si es Colombia (LICENCIA DE TRANSITO o TARJETA DE REGISTRO DE REMOLQUE/SEMIRREMOLQUE ' +
+    'del Ministerio de Transporte / Republica de Colombia). ' +
     'La placa debe ir sin espacios ni guiones. ' +
-    'ANO DEL VEHICULO (MUY IMPORTANTE): lee el ano desde la esquina INFERIOR DERECHA del documento, ' +
-    'donde suele aparecer como AAAA/AAAA (ej. "2025/2025"), cerca de la placa y encima del codigo QR grande. ' +
-    'Devuelve solo los 4 digitos del PRIMER ano (izquierda del slash). ' +
-    'NUNCA uses el numero que va despues de "/" en la linea del MODELO (ej. "BR200-2 / 22" — el "22" NO es el ano; ' +
-    'no devuelvas 2022 por ese motivo). ' +
-    'MODELO (MUY IMPORTANTE): lee la linea del codigo de modelo bajo la cedula/marca ' +
-    '(ej. "BR200-2 / 22"). Devuelve el codigo COMPLETO antes del slash final: "BR200-2". ' +
-    'Incluye digitos (BR200, BR200-2, etc.). NUNCA devuelvas solo "BR". ' +
-    'La marca "BERA" va en el campo marca, no en modelo. ' +
-    'Quita solo el sufijo " / XX" al final si aparece (el XX no es parte del modelo). ' +
-    'NO OLVIDES extraer el COLOR de la carroceria: aparece etiquetado como "COLOR" o ' +
-    '"COLOR DE LA CARROCERIA" en el cuerpo del documento. Devuelvelo capitalizado ' +
-    '(ej. "Blanco", "Negro", "Rojo", "Plata"). Si aparecen dos colores con "/", usa el primero.',
+    '=== SI tipoCarnet=nacional (Venezuela) === ' +
+    'ANO: esquina INFERIOR DERECHA AAAA/AAAA; solo el primer ano. ' +
+    'NUNCA uses el numero tras "/" en la linea del MODELO (ej. "BR200-2 / 22"). ' +
+    'MODELO: codigo completo bajo la marca (ej. "BR200-2"). linea y cilindrada y serialMotor: null. ' +
+    'serial: serial de carroceria. Extrae COLOR si aparece. ' +
+    '=== SI tipoCarnet=binacional (Colombia) === ' +
+    'PLACA = campo PLACA / No. DE PLACA. ' +
+    'linea = campo LINEA (equivale al modelo comercial: X5000, T800, 320I…). ' +
+    'anio = campo MODELO (en Colombia MODELO es el ANO en 4 digitos, ej. 2023). ' +
+    'marca = MARCA. color = COLOR si existe. ' +
+    'serial = VIN, o NÚMERO DE IDENTIFICACIÓN / NÚMERO DE CHASIS / NÚMERO DE SERIE (prioriza VIN). ' +
+    'serialMotor = NÚMERO DE MOTOR (null en remolques/semirremolques). ' +
+    'cilindrada = CILINDRADA CC tal cual (ej. "13.000"). ' +
+    'Si un valor esta enmascarado con ****** usa null. ' +
+    'NO confundas la LICENCIA DE TRANSITO colombiana con la licencia de conducir venezolana.',
   rif:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: REGISTRO UNICO DE INFORMACION FISCAL (RIF) venezolano (SENIAT). ' +
@@ -356,7 +477,8 @@ const PROMPTS = {
 };
 
 const SYSTEM_INSTRUCTION =
-  'Eres un extractor OCR estricto de documentos venezolanos oficiales. ' +
+  'Eres un extractor OCR estricto de documentos oficiales de vehiculos e identidad ' +
+  '(Venezuela y Colombia para carnets vehiculares). ' +
   'SIEMPRE empiezas verificando el header del documento (titulo y emisor) ' +
   'para determinar `documentoTipo`. Devuelve EXCLUSIVAMENTE un JSON con ' +
   'los campos pedidos. Si un campo no es legible o no aparece, usa null. ' +

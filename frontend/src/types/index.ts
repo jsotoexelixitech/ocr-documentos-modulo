@@ -96,8 +96,8 @@ export type PaymentMethod = 'card' | 'transfer' | 'mobile' | 'otp';
 
 export interface VehicleData {
   placa: string;
-  /** Tipo de placa: nacional (formato venezolano AAA000A/AAA000) o extranjera. */
-  tipoPlaca: 'nacional' | 'extranjera';
+  /** Tipo de placa: nacional (VE), extranjera u binacional (Colombia). */
+  tipoPlaca: 'nacional' | 'extranjera' | 'binacional';
   marca: string;   // nombre descriptivo (ej. "TOYOTA") — para display
   modelo: string;  // nombre descriptivo (ej. "COROLLA") — para display
   año: string;
@@ -120,6 +120,10 @@ export interface VehicleData {
   ctipo?: number;
   /** Serial del motor — opcional, máx. 60 caracteres. Aparece en el documento del vehículo. */
   serialMotor?: string;
+  /** Cilindrada CC (carnet binacional Colombia). */
+  cilindrada?: string;
+  /** Variante del carnet OCR: nacional (VE) o binacional (CO). */
+  tipoCarnet?: 'nacional' | 'binacional';
   /** Peso del vehículo en toneladas (nullable; default 60 en backend si no se envía). */
   ntoneladas?: number;
 }

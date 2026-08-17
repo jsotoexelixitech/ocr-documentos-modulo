@@ -14,10 +14,15 @@ export interface OcrFields {
   placa?: string;
   marca?: string;
   modelo?: string;
+  linea?: string;
   anio?: string;
   año?: string;
   serial?: string;
+  serialMotor?: string;
+  cilindrada?: string;
   color?: string;
+  tipoCarnet?: 'nacional' | 'binacional';
+  tipoPlaca?: 'nacional' | 'extranjera' | 'binacional';
   rif?: string;
   razonSocial?: string;
   fechaNacimiento?: string;
@@ -61,14 +66,55 @@ function getModuleTokenKey(): string {
   return 'nexus_access_token_ocr';
 }
 
+function isLocalHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+}
+
+function encodeHandoffForUrl(handoff: ExelixiOcrHandoff): string {
+  const json = JSON.stringify(handoff);
+  const bytes = new TextEncoder().encode(json);
+  let binary = '';
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function isLocalAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/i.test(value);
+}
+
 /** Siguiente paso: módulo formulario (misma cadena que La Mundial, rama Exélixi). */
 export function getFormularioContinueUrl(): string {
-  const configured = import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined;
-  const base = (configured?.replace(/\/$/, '') || '/formulario').replace(/\/$/, '');
-  const params = new URLSearchParams({ flow: 'exelixi-catalog' });
+  const configured = (import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined)?.replace(/\/$/, '') || '';
+  let base = '/formulario';
+
+  if (isLocalHost()) {
+    base = configured && !configured.startsWith('/')
+      ? configured
+      : 'http://localhost:5182';
+  } else if (configured && !isLocalAbsoluteUrl(configured)
+    && (configured.startsWith('/') || configured.startsWith('.'))) {
+    base = configured;
+  }
+
+  const params = new URLSearchParams();
 
   try {
     const current = new URL(window.location.href);
+    const flow = current.searchParams.get('flow');
+    const product =
+      current.searchParams.get('product')
+      || sessionStorage.getItem('exelixi_product')
+      || 'rcv';
+
+    // Conservar flujo Exélixi solo si ya venía así. La Mundial usa ?product=rcv|funerario.
+    if (flow === 'exelixi-catalog' || flow === 'exelixi') {
+      params.set('flow', 'exelixi-catalog');
+    } else {
+      params.set('product', product);
+    }
+
     const sid = current.searchParams.get('sid');
     const nexusToken =
       current.searchParams.get('nexus_token')
@@ -76,7 +122,7 @@ export function getFormularioContinueUrl(): string {
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
   } catch {
-    /* ignore */
+    params.set('product', 'rcv');
   }
 
   return `${base}/?${params.toString()}`;
@@ -85,6 +131,19 @@ export function getFormularioContinueUrl(): string {
 export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
   persistOcrHandoff(handoff);
   persistBuilderProduct(handoff.product ?? null);
+
+  if (isLocalHost()) {
+    let url = getFormularioContinueUrl();
+    try {
+      const u = new URL(url, window.location.origin);
+      u.searchParams.set('ocr_handoff', encodeHandoffForUrl(handoff));
+      url = u.toString();
+    } catch {
+      /* ignore */
+    }
+    window.location.href = url;
+    return;
+  }
 
   if (typeof window.__bridgeAdvance === 'function') {
     void window.__bridgeAdvance({
