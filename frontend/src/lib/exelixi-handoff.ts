@@ -67,8 +67,9 @@ function getModuleTokenKey(): string {
 }
 
 function isLocalHost(): boolean {
-  return typeof window !== 'undefined'
-    && /localhost|127\.0\.0\.1/i.test(window.location.hostname);
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
 }
 
 function encodeHandoffForUrl(handoff: ExelixiOcrHandoff): string {
@@ -79,14 +80,22 @@ function encodeHandoffForUrl(handoff: ExelixiOcrHandoff): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function isLocalAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/i.test(value);
+}
+
 /** Siguiente paso: módulo formulario (misma cadena que La Mundial, rama Exélixi). */
 export function getFormularioContinueUrl(): string {
-  const configured = import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined;
-  let base = (configured?.replace(/\/$/, '') || '/formulario').replace(/\/$/, '');
+  const configured = (import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined)?.replace(/\/$/, '') || '';
+  let base = '/formulario';
 
-  // Solo local: si no hay base absoluta, el front OCR vive en :5181 y Formulario en :5182.
-  if (isLocalHost() && (!configured || configured.startsWith('/'))) {
-    base = 'http://localhost:5182';
+  if (isLocalHost()) {
+    base = configured && !configured.startsWith('/')
+      ? configured
+      : 'http://localhost:5182';
+  } else if (configured && !isLocalAbsoluteUrl(configured)
+    && (configured.startsWith('/') || configured.startsWith('.'))) {
+    base = configured;
   }
 
   const params = new URLSearchParams();
@@ -123,6 +132,19 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
   persistOcrHandoff(handoff);
   persistBuilderProduct(handoff.product ?? null);
 
+  if (isLocalHost()) {
+    let url = getFormularioContinueUrl();
+    try {
+      const u = new URL(url, window.location.origin);
+      u.searchParams.set('ocr_handoff', encodeHandoffForUrl(handoff));
+      url = u.toString();
+    } catch {
+      /* ignore */
+    }
+    window.location.href = url;
+    return;
+  }
+
   if (typeof window.__bridgeAdvance === 'function') {
     void window.__bridgeAdvance({
       exelixiCatalog: true,
@@ -132,20 +154,7 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
     return;
   }
 
-  let url = getFormularioContinueUrl();
-
-  // Solo local cross-port: sessionStorage no se comparte entre :5181 y :5182.
-  if (isLocalHost()) {
-    try {
-      const u = new URL(url, window.location.origin);
-      u.searchParams.set('ocr_handoff', encodeHandoffForUrl(handoff));
-      url = u.toString();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  window.location.href = url;
+  window.location.href = getFormularioContinueUrl();
 }
 
 /** @deprecated Usar continueToFormularioModule — product-builder es solo catálogo admin. */
