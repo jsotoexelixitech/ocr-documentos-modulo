@@ -176,7 +176,6 @@ function normalizeCertificadoFields(fields) {
   fields.tipoCarnet = 'nacional';
   fields.tipoPlaca = 'nacional';
 
-  const modeloRaw = String(fields.modelo || '');
   let yearRaw = fields.anio ?? fields['año'];
 
   if (yearRaw != null && yearRaw !== '') {
@@ -236,6 +235,29 @@ function normalizeCertificadoFields(fields) {
   return fields;
 }
 
+/** Normaliza licencia VE (INTT) o Colombia (Ministerio de Transporte). */
+function normalizeLicenciaFields(fields) {
+  if (!fields || typeof fields !== 'object') return fields;
+
+  if (!fields.numeroLicencia || String(fields.numeroLicencia).trim() === '') {
+    const alt =
+      fields.numero_licencia
+      ?? fields.nroLicencia
+      ?? fields.noLicencia
+      ?? fields.numero
+      ?? null;
+    if (alt != null && String(alt).trim() !== '') {
+      fields.numeroLicencia = String(alt).trim();
+    }
+  }
+
+  if (fields.numeroLicencia) {
+    fields.numeroLicencia = String(fields.numeroLicencia).replace(/\s+/g, '').toUpperCase();
+  }
+
+  return fields;
+}
+
 /**
  * Campos críticos que validamos por tipo de documento. Si están vacíos en la
  * primera respuesta, intentamos con el siguiente modelo de la cadena.
@@ -279,7 +301,9 @@ const DOC_TYPE_PROP = {
   description:
     'Tipo de documento DETECTADO en la imagen, INDEPENDIENTE de lo que se haya pedido. ' +
     'Devuelve "cedula" si la imagen muestra "CEDULA DE IDENTIDAD". ' +
-    'Devuelve "licencia" si dice "Licencia para Conducir" (INTT venezolano). ' +
+    'Devuelve "licencia" si es licencia de conducir: ' +
+    '"Licencia para Conducir" (INTT Venezuela) ' +
+    'O "Licencia de Conduccion" / "LICENCIA DE CONDUCCIÓN" (Ministerio de Transporte Colombia). ' +
     'Devuelve "certificado" si es documento vehicular: ' +
     '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
     'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
@@ -331,10 +355,17 @@ const SCHEMAS = {
     type: Type.OBJECT,
     properties: {
       documentoTipo: DOC_TYPE_PROP,
-      numeroLicencia: { type: Type.STRING },
+      numeroLicencia: {
+        type: Type.STRING,
+        description:
+          'Numero de licencia. Venezuela INTT: numero impreso en la licencia. ' +
+          'Colombia: numero de la licencia de conduccion (campo No. / numero del documento).',
+      },
       categoria: {
         type: Type.STRING,
-        description: 'Grado o categoria (1ra, 2da, 3ra, 4ta, 5ta, A, B, C)',
+        description:
+          'Grado o categoria. Venezuela: 1ra, 2da, 3ra, 4ta, 5ta. ' +
+          'Colombia: clase/categoria (A1, A2, B1, B2, B3, C1, C2, C3…).',
       },
       vencimiento: {
         type: Type.STRING,
@@ -439,7 +470,8 @@ const SCHEMAS = {
 const VALIDATION_PREAMBLE =
   'PASO 1 (OBLIGATORIO): Identifica el HEADER del documento y devuelve documentoTipo: ' +
   '"cedula" si ves "CEDULA DE IDENTIDAD" sobre tricolor venezolano; ' +
-  '"licencia" si ves "Licencia para Conducir" del INTT venezolano; ' +
+  '"licencia" si ves licencia de conducir: INTT venezolano ("Licencia para Conducir") ' +
+  'O Colombia Ministerio de Transporte ("Licencia de Conduccion" / "LICENCIA DE CONDUCCIÓN"); ' +
   '"certificado" si ves documento de vehiculo: ' +
   '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
   'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
@@ -460,8 +492,11 @@ const PROMPTS = {
     'mapea S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)".',
   licencia:
     VALIDATION_PREAMBLE +
-    'Tipo solicitado: LICENCIA DE CONDUCIR VENEZOLANA (INTT). ' +
-    'Pon especial atencion a la fecha de vencimiento y al grado o categoria.',
+    'Tipo solicitado: LICENCIA DE CONDUCIR (Venezuela INTT o Colombia Ministerio de Transporte). ' +
+    'Venezuela: "Licencia para Conducir" del INTT — numeroLicencia, categoria (1ra-5ta), vencimiento. ' +
+    'Colombia: "Licencia de Conduccion" / Republica de Colombia — numeroLicencia del documento, ' +
+    'categoria/clase (A1, B1, C1…), vencimiento si aparece. ' +
+    'NO confundir con LICENCIA DE TRANSITO (documento del vehiculo, va en certificado).',
   certificado:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: DOCUMENTO VEHICULAR (carnet de circulacion). ' +
@@ -549,6 +584,9 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
 
       if (docType === 'certificado' && parsed) {
         normalizeCertificadoFields(parsed);
+      }
+      if (docType === 'licencia' && parsed) {
+        normalizeLicenciaFields(parsed);
       }
 
       return { fields: parsed, elapsedMs, attempt: attempt + 1 };
