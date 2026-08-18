@@ -84,6 +84,34 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** Gemini a veces devuelve la palabra "NULL" como string en vez de null JSON. */
+function isNullishOcrValue(value) {
+  if (value == null) return true;
+  const s = String(value).trim();
+  if (!s) return true;
+  const u = s.toUpperCase();
+  return u === 'NULL' || u === 'N/A' || u === 'NA' || u === 'NONE' || u === 'ND' || u === 'N/D';
+}
+
+function sanitizeOcrString(value) {
+  if (isNullishOcrValue(value)) return null;
+  return String(value).trim();
+}
+
+function sanitizeVinOrMotor(value) {
+  const s = sanitizeOcrString(value);
+  if (!s) return null;
+  const u = s.toUpperCase();
+  return u.includes('*') ? null : u;
+}
+
+/** Placa típica INTT Venezuela (ej. AC124KB) — no confundir con Colombia/binacional. */
+function looksLikeVePlacaNacional(placa) {
+  const p = String(placa || '').replace(/[\s-]/g, '').toUpperCase();
+  if (!p) return false;
+  return /^[A-Z]{1,3}\d{3}[A-Z]{0,3}$/.test(p) || /^[A-Z]{2}\d{5}$/.test(p);
+}
+
 /**
  * Normaliza campos del carnet vehicular (Venezuela INTT o Colombia binacional).
  *
@@ -96,18 +124,34 @@ function sleep(ms) {
 function normalizeCertificadoFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
 
+  // Limpiar tokens "NULL" / "N/A" antes de ramificar nacional vs binacional
+  for (const key of ['marca', 'modelo', 'linea', 'placa', 'serial', 'serialMotor', 'color', 'cilindrada', 'vin', 'numeroMotor', 'numero_motor']) {
+    if (key in fields && isNullishOcrValue(fields[key])) fields[key] = null;
+  }
+
   const tipoRaw = String(fields.tipoCarnet || fields.tipo_carnet || '').toLowerCase();
-  const hasLinea = Boolean(String(fields.linea || '').trim());
-  const isBinacional =
-    tipoRaw === 'binacional' ||
-    tipoRaw === 'colombia' ||
-    tipoRaw === 'colombiano' ||
-    (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
+  const hasLinea = Boolean(sanitizeOcrString(fields.linea));
+  const placaNorm = String(fields.placa || '').replace(/[\s-]/g, '').toUpperCase();
 
   // Unificar aliases que Gemini pueda devolver
   if (fields.vin && !fields.serial) fields.serial = fields.vin;
   if (fields.numeroMotor && !fields.serialMotor) fields.serialMotor = fields.numeroMotor;
   if (fields.numero_motor && !fields.serialMotor) fields.serialMotor = fields.numero_motor;
+
+  let isBinacional =
+    tipoRaw === 'binacional' ||
+    tipoRaw === 'colombia' ||
+    tipoRaw === 'colombiano' ||
+    (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
+
+  // Carnet INTT venezolano: Gemini suele marcar binacional por error (placa AC124KB, sin LINEA/CC)
+  const looksVeNacional =
+    looksLikeVePlacaNacional(placaNorm) &&
+    !hasLinea &&
+    (fields.cilindrada == null || isNullishOcrValue(fields.cilindrada));
+  if (isBinacional && looksVeNacional && tipoRaw !== 'colombia' && tipoRaw !== 'colombiano') {
+    isBinacional = false;
+  }
 
   if (isBinacional) {
     fields.tipoCarnet = 'binacional';
@@ -134,14 +178,9 @@ function normalizeCertificadoFields(fields) {
           : null;
     }
 
-    if (fields.serial) {
-      const s = String(fields.serial).trim().toUpperCase();
-      fields.serial = s.includes('*') || s === '' ? null : s;
-    }
-    if (fields.serialMotor) {
-      const s = String(fields.serialMotor).trim().toUpperCase();
-      fields.serialMotor = s.includes('*') || s === '' ? null : s;
-    }
+    fields.serial = sanitizeVinOrMotor(fields.serial);
+    fields.serialMotor = sanitizeVinOrMotor(fields.serialMotor);
+    if (isNullishOcrValue(fields.modelo)) fields.modelo = null;
     if (fields.cilindrada != null && fields.cilindrada !== '') {
       fields.cilindrada = String(fields.cilindrada).trim();
     } else {
@@ -217,13 +256,24 @@ function normalizeCertificadoFields(fields) {
   if (fromLine.length > modelo.length) modelo = fromLine;
   if (geminiModelo.length > modelo.length) modelo = geminiModelo;
 
-  fields.modelo = modelo ? modelo.toUpperCase() : null;
+  fields.modelo = isNullishOcrValue(modelo) ? null : modelo.toUpperCase();
 
   if (fields.placa) {
     fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();
   }
 
+  fields.serial = sanitizeVinOrMotor(fields.serial);
+  fields.serialMotor = sanitizeVinOrMotor(fields.serialMotor);
+  if (fields.marca) fields.marca = String(fields.marca).trim().toUpperCase();
+  if (fields.color) {
+    const c = String(fields.color).trim();
+    fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
+  }
+
   delete fields.anio;
+  delete fields.vin;
+  delete fields.numeroMotor;
+  delete fields.numero_motor;
   return fields;
 }
 
