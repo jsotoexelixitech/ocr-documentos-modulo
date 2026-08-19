@@ -118,6 +118,49 @@ function looksLikeCoPlaca(placa) {
   return /^[A-Z]{3}\d{2,3}[A-Z]?$/.test(p);
 }
 
+/** PROPIETARIO: APELLIDO(S) Y NOMBRE(S) — Colombia licencia de tránsito. */
+function splitColombianOwnerName(full) {
+  const parts = String(full || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { apellido: '', nombre: '' };
+  if (parts.length === 1) return { apellido: parts[0], nombre: '' };
+  const mid = Math.floor(parts.length / 2);
+  return {
+    apellido: parts.slice(0, mid).join(' '),
+    nombre: parts.slice(mid).join(' '),
+  };
+}
+
+function mapColombianOwnerDocType(raw) {
+  const u = String(raw || 'CC').toUpperCase().replace(/\./g, '').trim();
+  if (u.includes('NIT') || u === 'J') return 'J';
+  // Cédula colombiana en flujo VE → extranjero
+  return 'E';
+}
+
+function mapPropietarioFromBinacionalCarnet(fields) {
+  const ownerRaw = fields.propietario || fields.propietarioCompleto;
+  if (ownerRaw && !isNullishOcrValue(ownerRaw)) {
+    const { apellido, nombre } = splitColombianOwnerName(ownerRaw);
+    fields.propietarioApellido = apellido;
+    fields.propietarioNombre = nombre;
+    fields.apellido = apellido;
+    fields.nombre = nombre;
+  }
+
+  let idRaw = fields.identificacionPropietario || fields.propietarioIdentificacion;
+  if (idRaw != null && !isNullishOcrValue(idRaw)) {
+    const digits = String(idRaw).replace(/\D/g, '');
+    if (digits) {
+      fields.propietarioIdentificacion = digits;
+      fields.identificacion = digits;
+    }
+  }
+
+  if (fields.identificacion || fields.nombre || fields.apellido) {
+    fields.tipoDoc = mapColombianOwnerDocType(fields.tipoDocPropietario);
+  }
+}
+
 /**
  * Normaliza campos del carnet vehicular (Venezuela INTT o Colombia binacional).
  *
@@ -208,6 +251,8 @@ function normalizeCertificadoFields(fields) {
       const c = String(fields.color).trim();
       fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
     }
+
+    mapPropietarioFromBinacionalCarnet(fields);
 
     delete fields.anio;
     delete fields.vin;
@@ -464,6 +509,24 @@ const SCHEMAS = {
           'Capitaliza la primera letra. Si hay dos colores con "/", usa el primero. ' +
           'Si no aparece, null.',
       },
+      propietario: {
+        type: Type.STRING,
+        description:
+          'Solo Colombia binacional: texto completo del campo PROPIETARIO APELLIDO(S) Y NOMBRE(S) ' +
+          '(ej. "SCROCCHI MEDINA DAMIAN SEBASTIAN"). Venezuela INTT: null.',
+      },
+      identificacionPropietario: {
+        type: Type.STRING,
+        description:
+          'Solo Colombia binacional: numero de IDENTIFICACION del propietario (solo digitos, ' +
+          'ej. "1018525077" de "C.C. 1018525077"). Venezuela INTT: null.',
+      },
+      tipoDocPropietario: {
+        type: Type.STRING,
+        description:
+          'Solo Colombia binacional: prefijo del documento del propietario (CC, CE, NIT). ' +
+          'Venezuela INTT: null.',
+      },
     },
     required: ['documentoTipo', 'tipoCarnet'],
   },
@@ -532,6 +595,9 @@ const PROMPTS = {
     'serial = VIN, o NÚMERO DE IDENTIFICACIÓN / NÚMERO DE CHASIS / NÚMERO DE SERIE (prioriza VIN). ' +
     'serialMotor = NÚMERO DE MOTOR (null en remolques/semirremolques). ' +
     'cilindrada = CILINDRADA CC tal cual (ej. "13.000"). ' +
+    'propietario = PROPIETARIO APELLIDO(S) Y NOMBRE(S) completo. ' +
+    'identificacionPropietario = numero tras C.C. / C.E. (solo digitos). ' +
+    'tipoDocPropietario = CC, CE o NIT segun el carnet. ' +
     'Si un valor esta enmascarado con ****** usa null. ' +
     'NO confundas la LICENCIA DE TRANSITO colombiana con la licencia de conducir venezolana.',
   rif:

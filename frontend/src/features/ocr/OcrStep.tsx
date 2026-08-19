@@ -18,6 +18,7 @@ import {
   isBinacionalCarnet,
   resolveTipoPlacaFromCert,
 } from '../../lib/ocr-binacional';
+import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
@@ -80,6 +81,7 @@ function UploadDocCard({
   const docState = useWizardStore((s) => s.documents[config.type]) || { status: config.optional ? 'idle' : 'idle', progress: 0 };
   const setDocState = useWizardStore((s) => s.setDocState);
   const setVehicle = useWizardStore((s) => s.setVehicle);
+  const setTomador = useWizardStore((s) => s.setTomador);
   const carnetBinacionalMode = useWizardStore((s) => s.carnetBinacionalMode);
   const setCarnetBinacionalMode = useWizardStore((s) => s.setCarnetBinacionalMode);
 
@@ -234,6 +236,11 @@ function UploadDocCard({
         if (binacional) {
           setCarnetBinacionalMode(true);
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
+        }
+        const tomadorFromCert = extractTomadorFromCertificado(result.ocr);
+        const cedulaId = useWizardStore.getState().documents.cedula?.ocr?.identificacion;
+        if (tomadorFromCert && !cedulaId) {
+          setTomador(tomadorFromCert);
         }
       }
     } catch (err: unknown) {
@@ -568,7 +575,7 @@ export function OcrStep() {
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
       const cedula = documents.cedula.ocr;
-      if (cedula) {
+      if (cedula?.nombre || cedula?.identificacion) {
         // El OCR de Gemini devuelve "Soltero(a)" / "Femenino" pero el catálogo
         // Valrep usa "SOLTERO" / "FEMENINO". matchCatalog hace el puente.
         const sexoOpts = catalogs.sexos.map(s => ({ value: String(s.label), label: s.label }));
@@ -588,11 +595,15 @@ export function OcrStep() {
       // lleva certificado de vehículo.
       const cert = hasVehicle ? documents.certificado.ocr : undefined;
       if (cert) {
+        if (!cedula?.identificacion && !cedula?.nombre) {
+          const tomadorFromCert = extractTomadorFromCertificado(cert);
+          if (tomadorFromCert) setTomador(tomadorFromCert);
+        }
         setVehicle({
           placa: cert.placa ?? '',
           marca: cert.marca ?? '',
           modelo: cert.modelo ?? cert.linea ?? '',
-          año: cert.año ?? '',
+          año: cert.año ?? cert.anio ?? '',
           color: cert.color ?? '',
           serial: cert.serial ?? '',
           serialMotor: cert.serialMotor ?? '',

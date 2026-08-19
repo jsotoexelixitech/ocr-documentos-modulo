@@ -29,6 +29,7 @@ export interface OcrResult {
   modelo?: string;
   /** Alias usado por OCR carnet binacional (Colombia). */
   linea?: string;
+  anio?: string;
   año?: string;
   serial?: string;
   serialMotor?: string;
@@ -38,6 +39,12 @@ export interface OcrResult {
   color?: string;
   rif?: string;
   razonSocial?: string | null;
+  propietario?: string;
+  identificacionPropietario?: string;
+  tipoDocPropietario?: string;
+  propietarioNombre?: string;
+  propietarioApellido?: string;
+  propietarioIdentificacion?: string;
 }
 
 export interface DocumentState {
