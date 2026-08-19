@@ -613,8 +613,11 @@ export function OcrStep() {
     if (updates.sexo || updates.estadoCivil) setTomador(updates);
   }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
-  const completedCount = requiredDocs.filter((d) => documents[d]?.status === 'done').length;
-  const completionPct = (completedCount / requiredDocs.length) * 100;
+  const completedCount = effectiveRequired.filter((d) => documents[d]?.status === 'done').length;
+  const completionPct =
+    effectiveRequired.length > 0
+      ? (completedCount / effectiveRequired.length) * 100
+      : 0;
 
   return (
     <div className="animate-fade-in">
@@ -635,7 +638,7 @@ export function OcrStep() {
             </span>
             <div className="pb-1">
               <p className="text-xs text-slate-500 font-semibold leading-tight">
-                de <span className="font-mono text-slate-700">{requiredDocs.length}</span> obligatorios
+                de <span className="font-mono text-slate-700">{effectiveRequired.length}</span> obligatorios
               </p>
               <p className="text-[0.65rem] text-slate-500 mt-0.5">documentos verificados</p>
             </div>
