@@ -1,10 +1,11 @@
 import type { DocType, DocumentState } from '../types';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
+import type { DiligenciaState } from './diligencia';
 import { persistBuilderProduct } from './builder-catalog';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
 
-export type OcrDocType = 'cedula' | 'licencia' | 'certificado' | 'rif';
+export type OcrDocType = 'cedula' | 'licencia' | 'certificado' | 'rif' | 'pasaporte';
 
 export interface OcrFields {
   nombre?: string;
@@ -37,6 +38,10 @@ export interface ExelixiOcrHandoff {
   productId: string;
   product?: BuilderCatalogProduct;
   ocrData: Partial<Record<OcrDocType, OcrFields>>;
+  itipoDiligencia?: 'S' | 'C';
+  documentosRequeridos?: DocType[];
+  documentHashes?: Partial<Record<DocType, string>>;
+  diligencia?: DiligenciaState | null;
   savedAt: number;
 }
 
@@ -49,16 +54,28 @@ export function buildOcrHandoff(
   productId: string,
   documents: Record<DocType, DocumentState>,
   product?: BuilderCatalogProduct,
+  diligencia?: DiligenciaState | null,
 ): ExelixiOcrHandoff {
   const ocrData: Partial<Record<OcrDocType, OcrFields>> = {};
-  const types: OcrDocType[] = ['cedula', 'licencia', 'certificado', 'rif'];
+  const types: OcrDocType[] = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte'];
+  const documentHashes: Partial<Record<DocType, string>> = {};
 
   for (const type of types) {
     const mapped = mapDocOcr(documents[type]);
     if (mapped) ocrData[type] = mapped;
+    if (documents[type]?.hash) documentHashes[type] = documents[type]!.hash;
   }
 
-  return { productId, product, ocrData, savedAt: Date.now() };
+  return {
+    productId,
+    product,
+    ocrData,
+    itipoDiligencia: diligencia?.itipoDiligencia,
+    documentosRequeridos: diligencia?.documentosRequeridos,
+    documentHashes,
+    diligencia: diligencia ?? null,
+    savedAt: Date.now(),
+  };
 }
 
 export function persistOcrHandoff(handoff: ExelixiOcrHandoff): void {

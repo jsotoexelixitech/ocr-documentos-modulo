@@ -58,6 +58,14 @@ const DOCS: DocConfig[] = [
     accent: 'from-blue-500 to-indigo-500',
   },
   {
+    type: 'pasaporte',
+    label: 'Pasaporte',
+    description: 'Alternativa a cédula (DDS)',
+    Icon: IdCard,
+    optional: true,
+    accent: 'from-emerald-500 to-teal-500',
+  },
+  {
     type: 'rif',
     label: 'RIF',
     description: 'Opcional · empresas',
@@ -219,6 +227,7 @@ function UploadDocCard({
           progress: 100,
           file: result.file,
           ocr: {},
+          hash: result.hash,
         });
         return;
       }
@@ -228,7 +237,15 @@ function UploadDocCard({
         progress: 100,
         file: result.file,
         ocr: result.ocr,
+        hash: result.hash,
       });
+
+      if (config.type === 'cedula' && result.ocr?.tipoDoc) {
+        const tipo = String(result.ocr.tipoDoc).trim().toUpperCase();
+        const { setDiligencia } = useWizardStore.getState();
+        const itipo = ['J', 'G', 'C'].includes(tipo) ? 'C' : 'S';
+        setDiligencia({ itipoDiligencia: itipo, clasificadoEn: 'ocr' });
+      }
 
       if (config.type === 'certificado') {
         const binacional =
@@ -504,11 +521,20 @@ function UploadDocCard({
 
 
 import { useProductConfig } from '../../hooks/useProductConfig';
+import {
+  getOptionalDocs,
+  getRequiredDocs,
+  diligenciaLabel,
+  preClasificarDiligencia,
+} from '../../lib/diligencia';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 export function OcrStep() {
-  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador, builderProduct, carnetBinacionalMode } = useWizardStore();
+  const {
+    documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
+    builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
+  } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
@@ -520,14 +546,23 @@ export function OcrStep() {
     : product.hasVehicle;
 
   // Documentos según catálogo Exélixi, Nexus o producto legacy (rcv/funerario).
-  let requiredDocs: DocType[] = product.docs.required;
-  let optionalDocs: DocType[] = product.docs.optional;
+  const itipoDiligencia = diligencia?.itipoDiligencia ?? preClasificarDiligencia(tomador.tipoDoc);
+  let requiredDocs: DocType[] = getRequiredDocs(
+    config as Record<string, unknown> | null,
+    itipoDiligencia,
+    product.docs.required,
+  );
+  let optionalDocs: DocType[] = getOptionalDocs(
+    config as Record<string, unknown> | null,
+    itipoDiligencia,
+    product.docs.optional,
+  );
 
   if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
     optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
-  } else if (config?.documentos) {
+  } else if (config?.documentos && !config?.documentosPorDiligencia) {
     if (Array.isArray(config.documentos)) {
       const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
       requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as DocType);
@@ -541,6 +576,21 @@ export function OcrStep() {
 
   const { requiredDocs: effectiveRequired, optionalDocs: effectiveOptional } =
     adjustDocsForBinacionalCarnet(requiredDocs, optionalDocs, documents, hasVehicle, carnetBinacionalMode);
+
+  useEffect(() => {
+    if (product.id !== 'rcv') return;
+    const hashes = Object.fromEntries(
+      Object.entries(documents)
+        .filter(([, d]) => d?.hash)
+        .map(([k, d]) => [k, d!.hash!]),
+    );
+    setDiligencia({
+      itipoDiligencia,
+      documentosRequeridos: effectiveRequired,
+      documentHashes: hashes,
+      clasificadoEn: 'ocr',
+    });
+  }, [product.id, itipoDiligencia, effectiveRequired.join(','), documents, setDiligencia]);
 
   const visibleDocs = DOCS.filter(
     (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
@@ -668,6 +718,11 @@ export function OcrStep() {
             Carga tus documentos y los analizaremos con OCR para
             <span className="font-bold text-slate-800"> precargar la información</span> en el siguiente paso.
             Aceptamos JPG, PNG, SVG o PDF.
+            {product.id === 'rcv' && (
+              <span className="block mt-2 text-indigo-700 font-semibold text-xs">
+                Perfil activo: {diligenciaLabel(itipoDiligencia)}
+              </span>
+            )}
           </p>
         </div>
         <div className="relative bg-gradient-to-br from-indigo-50 via-violet-50/60 to-white border border-indigo-100 rounded-2xl p-4 overflow-hidden">

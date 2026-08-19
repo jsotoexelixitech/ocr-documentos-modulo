@@ -15,6 +15,7 @@ import type {
 import { getProductId } from '../lib/product';
 import { readStoredBuilderProduct, useBuilderCatalog } from '../lib/builder-catalog';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
+import { buildDiligenciaState, preClasificarDiligencia, type DiligenciaState } from '../lib/diligencia';
 
 const defaultDoc = (): DocumentState => ({ status: 'idle', progress: 0 });
 
@@ -87,6 +88,7 @@ interface WizardActions {
   setMetadataCanal: (data: Record<string, any> | null) => void;
   setBuilderProduct: (product: BuilderCatalogProduct | null) => void;
   setCarnetBinacionalMode: (v: boolean) => void;
+  setDiligencia: (data: Partial<DiligenciaState> | null) => void;
   reset: () => void;
 }
 
@@ -99,6 +101,7 @@ const initialState: WizardState = {
     licencia: defaultDoc(),
     certificado: defaultDoc(),
     rif: defaultDoc(),
+    pasaporte: defaultDoc(),
   },
   ocrDone: false,
   tomador: defaultTomador(),
@@ -123,6 +126,7 @@ const initialState: WizardState = {
   quoteVehicleSignature: null,
   metadataCanal: null,
   carnetBinacionalMode: false,
+  diligencia: buildDiligenciaState({ itipoDiligencia: 'S', clasificadoEn: 'ocr' }),
 };
 
 export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
@@ -211,6 +215,23 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
   setBuilderProduct: (builderProduct) => set({ builderProduct }),
 
   setCarnetBinacionalMode: (carnetBinacionalMode) => set({ carnetBinacionalMode }),
+
+  setDiligencia: (data) =>
+    set((s) => {
+      if (data === null) {
+        return {
+          diligencia: buildDiligenciaState({
+            itipoDiligencia: preClasificarDiligencia(s.tomador.tipoDoc),
+            clasificadoEn: 'ocr',
+          }),
+        };
+      }
+      const base = s.diligencia ?? buildDiligenciaState({
+        itipoDiligencia: preClasificarDiligencia(s.tomador.tipoDoc),
+        clasificadoEn: 'ocr',
+      });
+      return { diligencia: { ...base, ...data } };
+    }),
 
   reset: () => set({ ...initialState, builderProduct: useBuilderCatalog() ? readStoredBuilderProduct() : null }),
 }));

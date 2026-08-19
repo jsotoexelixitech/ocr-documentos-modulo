@@ -1,4 +1,6 @@
-export type DocType = 'cedula' | 'licencia' | 'certificado' | 'rif';
+export type DocType = 'cedula' | 'licencia' | 'certificado' | 'rif' | 'pasaporte';
+
+export type { DiligenciaState, TipoDiligencia } from '../lib/diligencia';
 
 /** Producto de seguro que se está suscribiendo en el flujo. */
 export type ProductId = 'rcv' | 'funerario';
@@ -53,6 +55,8 @@ export interface DocumentState {
   file?: DocumentFile;
   ocr?: OcrResult;
   error?: string;
+  /** SHA-256 del archivo subido (Circular SAA-02-1079-2026). */
+  hash?: string;
 }
 
 export type TomadorData = {
@@ -208,4 +212,6 @@ export interface WizardState {
   metadataCanal: Record<string, any> | null;
   /** Carnet colombiano/binacional detectado — solo certificado obligatorio. */
   carnetBinacionalMode: boolean;
+  /** Circular SAA-02-1079-2026 — clasificación DDS/DDC y docs requeridos. */
+  diligencia: import('../lib/diligencia').DiligenciaState | null;
 }

@@ -8,6 +8,10 @@ import {
 import { AuroraBackground } from '../components/AuroraBackground';
 import { VisualTemplateBuilder } from './VisualTemplateBuilder';
 import { readConfigPanelContext } from './configPanelContext';
+import {
+  DEFAULT_DOCS_DDC,
+  DEFAULT_DOCS_DDS,
+} from '../lib/diligencia';
 
 const PANEL_CTX = readConfigPanelContext();
 const EMPRESA_ID = PANEL_CTX.empresaId;
@@ -126,7 +130,25 @@ export function OcrConfigPanel() {
   };
 
   async function handleSave() {
-    await saveConfig({ documentos: docs, apiMap, escaneoLoteBeneficiarios, validarVigencia });
+    const payload: Record<string, unknown> = {
+      documentos: docs,
+      apiMap,
+      escaneoLoteBeneficiarios,
+      validarVigencia,
+    };
+    if (producto === 'rcv') {
+      payload.documentosPorDiligencia = {
+        S: DEFAULT_DOCS_DDS.map((d) => {
+          const found = docs.find((x) => x.key === d.key);
+          return found ?? d;
+        }),
+        C: DEFAULT_DOCS_DDC.map((d) => {
+          const found = docs.find((x) => x.key === d.key);
+          return found ?? d;
+        }),
+      };
+    }
+    await saveConfig(payload);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }

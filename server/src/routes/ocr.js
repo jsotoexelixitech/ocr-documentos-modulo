@@ -7,6 +7,7 @@
  */
 const express = require('express');
 const fs      = require('fs/promises');
+const crypto  = require('crypto');
 const multer  = require('multer');
 const path    = require('path');
 const sharp   = require('sharp');
@@ -155,6 +156,14 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
 
     const ocrResult = await runOcr(file, docType);
 
+    let fileHash = null;
+    try {
+      const buf = await fs.readFile(normalized.filePath);
+      fileHash = crypto.createHash('sha256').update(buf).digest('hex');
+    } catch {
+      /* hash opcional */
+    }
+
     if (ocrResult.mismatch) {
       try { await fs.unlink(req.file.path); } catch {}
       return res.status(422).json({
@@ -192,6 +201,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
       },
       ocr: ocrResult.fields,
       ocrProvider: ocrResult.provider,
+      ...(fileHash ? { hash: fileHash, metadata: { docType, hash: fileHash, uploadedAt: new Date().toISOString() } } : {}),
       ...(carnetBinacional ? { carnetBinacional: true } : {}),
       ...(ocrResult.ocrFailed ? { ocrFailed: true } : {}),
       ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),

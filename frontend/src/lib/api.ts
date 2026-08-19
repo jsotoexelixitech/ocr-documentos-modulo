@@ -17,6 +17,8 @@ export interface UploadResponse {
   file: DocumentFile;
   ocr: OcrResult;
   ocrProvider?: string;
+  /** SHA-256 del archivo (Circular SAA-02-1079-2026). */
+  hash?: string;
   /**
    * `true` cuando el archivo se guardo correctamente pero el OCR no pudo
    * extraer datos (cuota agotada, imagen ilegible, etc.). El cliente debe
