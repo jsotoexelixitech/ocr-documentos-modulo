@@ -105,11 +105,17 @@ function sanitizeVinOrMotor(value) {
   return u.includes('*') ? null : u;
 }
 
-/** Placa típica INTT Venezuela (ej. AC124KB) — no confundir con Colombia/binacional. */
+/** Placa INTT Venezuela (ej. AC124KB) — no confundir con Colombia (SWK284). */
 function looksLikeVePlacaNacional(placa) {
   const p = String(placa || '').replace(/[\s-]/g, '').toUpperCase();
   if (!p) return false;
-  return /^[A-Z]{1,3}\d{3}[A-Z]{0,3}$/.test(p) || /^[A-Z]{2}\d{5}$/.test(p);
+  return /^[A-Z]{2}\d{3}[A-Z]{2}$/.test(p) || /^[A-Z]{2}\d{5}$/.test(p);
+}
+
+function looksLikeCoPlaca(placa) {
+  const p = String(placa || '').replace(/[\s-]/g, '').toUpperCase();
+  if (!p) return false;
+  return /^[A-Z]{3}\d{2,3}[A-Z]?$/.test(p);
 }
 
 /**
@@ -142,6 +148,7 @@ function normalizeCertificadoFields(fields) {
     tipoRaw === 'binacional' ||
     tipoRaw === 'colombia' ||
     tipoRaw === 'colombiano' ||
+    looksLikeCoPlaca(placaNorm) ||
     (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
 
   // Carnet INTT venezolano: Gemini suele marcar binacional por error (placa AC124KB, sin LINEA/CC)
@@ -149,7 +156,14 @@ function normalizeCertificadoFields(fields) {
     looksLikeVePlacaNacional(placaNorm) &&
     !hasLinea &&
     (fields.cilindrada == null || isNullishOcrValue(fields.cilindrada));
-  if (isBinacional && looksVeNacional && tipoRaw !== 'colombia' && tipoRaw !== 'colombiano') {
+  if (
+    isBinacional &&
+    looksVeNacional &&
+    tipoRaw !== 'binacional' &&
+    tipoRaw !== 'colombia' &&
+    tipoRaw !== 'colombiano' &&
+    !looksLikeCoPlaca(placaNorm)
+  ) {
     isBinacional = false;
   }
 
