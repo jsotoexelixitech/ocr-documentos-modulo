@@ -16,9 +16,11 @@ import { useProductConfig } from './hooks/useProductConfig';
 import { CatalogPickerStep } from './features/catalog/CatalogPickerStep';
 import { ExelixiOcrFlow } from './components/exelixi/ExelixiOcrFlow';
 import {
+  branchHasVehicle,
   resolveBuilderDocuments,
   useBuilderCatalog,
 } from './lib/builder-catalog';
+import { adjustDocsForBinacionalCarnet } from './lib/ocr-binacional';
 import { buildOcrHandoff, continueToFormularioModule } from './lib/exelixi-handoff';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
@@ -81,47 +83,55 @@ export default function App() {
     );
   }
 
-  function handleContinuar() {
-    let requiredDocs = product.docs.required;
+  function resolveEffectiveOcrDocs(): { requiredDocs: string[]; optionalDocs: string[] } {
+    let requiredDocs: string[] = [...product.docs.required];
+    let optionalDocs: string[] = [...product.docs.optional];
 
     if (builderCatalogMode && builderProduct) {
-      requiredDocs = resolveBuilderDocuments(builderProduct)
-        .filter((d) => d.required)
-        .map((d) => d.ocrType);
-
-      const allDone = requiredDocs.every((d) => documents[d]?.status === 'done');
-      if (!allDone) {
-        const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
-        toast.warning('Documentos pendientes', `Procesa ${lista} para continuar.`);
-        return;
-      }
-
-      toast.success('Documentos listos', 'Continuando con el formulario de emisión…', 1200);
-      advanceToFormulario();
-      return;
-    }
-
-    if (builderProduct) {
-      requiredDocs = resolveBuilderDocuments(builderProduct)
-        .filter((d) => d.required)
-        .map((d) => d.ocrType);
+      const slots = resolveBuilderDocuments(builderProduct);
+      requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
+      optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
+    } else if (builderProduct) {
+      const slots = resolveBuilderDocuments(builderProduct);
+      requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
+      optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
     } else if (config?.documentos) {
       if (Array.isArray(config.documentos)) {
         const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
-        requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as any);
+        requiredDocs = docsArr.filter((d) => d.activo && d.obligatorio).map((d) => d.key);
+        optionalDocs = docsArr.filter((d) => d.activo && !d.obligatorio).map((d) => d.key);
       } else {
         const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
-        requiredDocs = Object.keys(docs).filter(k => docs[k].activo && docs[k].obligatorio) as any;
+        requiredDocs = Object.keys(docs).filter((k) => docs[k].activo && docs[k].obligatorio);
+        optionalDocs = Object.keys(docs).filter((k) => docs[k].activo && !docs[k].obligatorio);
       }
     }
+
+    const hasVehicle = builderProduct
+      ? branchHasVehicle(builderProduct.branch)
+      : product.hasVehicle;
+
+    return adjustDocsForBinacionalCarnet(
+      requiredDocs as any,
+      optionalDocs as any,
+      documents,
+      hasVehicle,
+    );
+  }
+
+  function handleContinuar() {
+    const { requiredDocs } = resolveEffectiveOcrDocs();
 
     const allDone = requiredDocs.every((d) => documents[d]?.status === 'done');
     if (!allDone) {
       const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
-      toast.warning(
-        'Documentos pendientes',
-        `Procesa ${lista} para continuar.`,
-      );
+      toast.warning('Documentos pendientes', `Procesa ${lista} para continuar.`);
+      return;
+    }
+
+    if (builderCatalogMode && builderProduct) {
+      toast.success('Documentos listos', 'Continuando con el formulario de emisión…', 1200);
+      advanceToFormulario();
       return;
     }
 

@@ -13,6 +13,11 @@ import {
   branchHasVehicle,
   resolveBuilderDocuments,
 } from '../../lib/builder-catalog';
+import {
+  adjustDocsForBinacionalCarnet,
+  isBinacionalCarnet,
+  resolveTipoPlacaFromCert,
+} from '../../lib/ocr-binacional';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
@@ -498,13 +503,18 @@ export function OcrStep() {
     }
   }
 
+  const { requiredDocs: effectiveRequired, optionalDocs: effectiveOptional } =
+    adjustDocsForBinacionalCarnet(requiredDocs, optionalDocs, documents, hasVehicle);
+
   const visibleDocs = DOCS.filter(
-    (d) => requiredDocs.includes(d.type) || optionalDocs.includes(d.type),
+    (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
   ).map((d) => ({
     ...d,
-    optional: optionalDocs.includes(d.type),
+    optional: effectiveOptional.includes(d.type),
   }));
-  const allRequiredDone = requiredDocs.length > 0 && requiredDocs.every((d) => documents[d]?.status === 'done');
+  const allRequiredDone =
+    effectiveRequired.length > 0
+    && effectiveRequired.every((d) => documents[d]?.status === 'done');
 
   // La grilla de carga se adapta a la cantidad de documentos del producto y se
   // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede
@@ -517,6 +527,14 @@ export function OcrStep() {
       : visibleDocs.length === 3
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
         : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4';
+
+  const certOcr = hasVehicle ? documents.certificado?.ocr : undefined;
+
+  useEffect(() => {
+    if (!hasVehicle || !certOcr || documents.certificado?.status !== 'done') return;
+    if (!isBinacionalCarnet(certOcr)) return;
+    setVehicle({ tipoPlaca: 'binacional' });
+  }, [hasVehicle, certOcr, documents.certificado?.status, setVehicle]);
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
@@ -551,12 +569,7 @@ export function OcrStep() {
           serialMotor: cert.serialMotor ?? '',
           cilindrada: cert.cilindrada ?? '',
           tipoCarnet: cert.tipoCarnet,
-          tipoPlaca:
-            cert.tipoPlaca === 'binacional' || cert.tipoCarnet === 'binacional'
-              ? 'binacional'
-              : cert.tipoPlaca === 'extranjera'
-                ? 'extranjera'
-                : 'nacional',
+          tipoPlaca: resolveTipoPlacaFromCert(cert),
         });
       }
       setOcrDone(true);
