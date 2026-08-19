@@ -22,6 +22,12 @@ import {
 } from './lib/builder-catalog';
 import { adjustDocsForBinacionalCarnet } from './lib/ocr-binacional';
 import { buildOcrHandoff, continueToFormularioModule } from './lib/exelixi-handoff';
+import {
+  getOptionalDocs,
+  getRequiredDocs,
+  preClasificarDiligencia,
+} from './lib/diligencia';
+import type { DocType } from './types';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
@@ -29,6 +35,7 @@ const DOC_LABELS: Record<string, string> = {
   cedula: 'cédula',
   licencia: 'licencia',
   certificado: 'certificado',
+  pasaporte: 'pasaporte',
   rif: 'RIF',
 };
 
@@ -39,7 +46,7 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, diligencia, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode } = useWizardStore();
+  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
@@ -84,9 +91,18 @@ export default function App() {
     );
   }
 
-  function resolveEffectiveOcrDocs(): { requiredDocs: string[]; optionalDocs: string[] } {
-    let requiredDocs: string[] = [...product.docs.required];
-    let optionalDocs: string[] = [...product.docs.optional];
+  function resolveEffectiveOcrDocs(): { requiredDocs: DocType[]; optionalDocs: DocType[] } {
+    const itipoDiligencia = diligencia?.itipoDiligencia ?? preClasificarDiligencia(tomador.tipoDoc);
+    let requiredDocs: DocType[] = getRequiredDocs(
+      config as Record<string, unknown> | null,
+      itipoDiligencia,
+      product.docs.required,
+    );
+    let optionalDocs: DocType[] = getOptionalDocs(
+      config as Record<string, unknown> | null,
+      itipoDiligencia,
+      product.docs.optional,
+    );
 
     if (builderCatalogMode && builderProduct) {
       const slots = resolveBuilderDocuments(builderProduct);
@@ -96,15 +112,15 @@ export default function App() {
       const slots = resolveBuilderDocuments(builderProduct);
       requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
       optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
-    } else if (config?.documentos) {
+    } else if (config?.documentos && !config?.documentosPorDiligencia) {
       if (Array.isArray(config.documentos)) {
         const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
-        requiredDocs = docsArr.filter((d) => d.activo && d.obligatorio).map((d) => d.key);
-        optionalDocs = docsArr.filter((d) => d.activo && !d.obligatorio).map((d) => d.key);
+        requiredDocs = docsArr.filter((d) => d.activo && d.obligatorio).map((d) => d.key as DocType);
+        optionalDocs = docsArr.filter((d) => d.activo && !d.obligatorio).map((d) => d.key as DocType);
       } else {
         const docs = config.documentos as Record<string, { activo: boolean; obligatorio: boolean }>;
-        requiredDocs = Object.keys(docs).filter((k) => docs[k].activo && docs[k].obligatorio);
-        optionalDocs = Object.keys(docs).filter((k) => docs[k].activo && !docs[k].obligatorio);
+        requiredDocs = Object.keys(docs).filter((k) => docs[k].activo && docs[k].obligatorio) as DocType[];
+        optionalDocs = Object.keys(docs).filter((k) => docs[k].activo && !docs[k].obligatorio) as DocType[];
       }
     }
 
@@ -113,8 +129,8 @@ export default function App() {
       : product.hasVehicle;
 
     return adjustDocsForBinacionalCarnet(
-      requiredDocs as any,
-      optionalDocs as any,
+      requiredDocs,
+      optionalDocs,
       documents,
       hasVehicle,
       carnetBinacionalMode,
