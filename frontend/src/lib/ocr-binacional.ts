@@ -90,6 +90,7 @@ export function adjustDocsForBinacionalCarnet(
   optionalDocs: DocType[],
   documents: Record<DocType, DocumentState>,
   hasVehicle: boolean,
+  carnetBinacionalMode = false,
 ): { requiredDocs: DocType[]; optionalDocs: DocType[] } {
   if (!hasVehicle) {
     return { requiredDocs: [...requiredDocs], optionalDocs: [...optionalDocs] };
@@ -99,7 +100,7 @@ export function adjustDocsForBinacionalCarnet(
   const cert = certState?.ocr as CertOcr | undefined;
   const certDone = certState?.status === 'done';
 
-  if (!certDone || !isBinacionalCarnet(cert)) {
+  if (!certDone || (!carnetBinacionalMode && !isBinacionalCarnet(cert))) {
     return { requiredDocs: [...requiredDocs], optionalDocs: [...optionalDocs] };
   }
 

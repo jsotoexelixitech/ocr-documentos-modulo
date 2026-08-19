@@ -86,6 +86,7 @@ interface WizardActions {
   clearQuote: () => void;
   setMetadataCanal: (data: Record<string, any> | null) => void;
   setBuilderProduct: (product: BuilderCatalogProduct | null) => void;
+  setCarnetBinacionalMode: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -121,6 +122,7 @@ const initialState: WizardState = {
   quoteError: null,
   quoteVehicleSignature: null,
   metadataCanal: null,
+  carnetBinacionalMode: false,
 };
 
 export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
@@ -207,6 +209,8 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
   setMetadataCanal: (data) => set({ metadataCanal: data }),
 
   setBuilderProduct: (builderProduct) => set({ builderProduct }),
+
+  setCarnetBinacionalMode: (carnetBinacionalMode) => set({ carnetBinacionalMode }),
 
   reset: () => set({ ...initialState, builderProduct: useBuilderCatalog() ? readStoredBuilderProduct() : null }),
 }));

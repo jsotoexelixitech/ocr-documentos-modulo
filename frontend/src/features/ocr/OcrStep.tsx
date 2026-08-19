@@ -79,6 +79,9 @@ function UploadDocCard({
 
   const docState = useWizardStore((s) => s.documents[config.type]) || { status: config.optional ? 'idle' : 'idle', progress: 0 };
   const setDocState = useWizardStore((s) => s.setDocState);
+  const setVehicle = useWizardStore((s) => s.setVehicle);
+  const carnetBinacionalMode = useWizardStore((s) => s.carnetBinacionalMode);
+  const setCarnetBinacionalMode = useWizardStore((s) => s.setCarnetBinacionalMode);
 
   const statusVariant = {
     idle: config.optional ? 'optional' : 'pending',
@@ -224,6 +227,15 @@ function UploadDocCard({
         file: result.file,
         ocr: result.ocr,
       });
+
+      if (config.type === 'certificado') {
+        const binacional =
+          Boolean(result.carnetBinacional) || isBinacionalCarnet(result.ocr as Parameters<typeof isBinacionalCarnet>[0]);
+        if (binacional) {
+          setCarnetBinacionalMode(true);
+          setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
+        }
+      }
     } catch (err: unknown) {
       if (err instanceof DocTypeMismatchError) {
         toast.warning(
@@ -426,7 +438,8 @@ function UploadDocCard({
 
       {/* Action footer (only when done) */}
       {isDone && (
-        <div className="p-4 pt-2 flex gap-2">
+        <div className="p-4 pt-2 flex flex-col gap-2">
+          <div className="flex gap-2">
           {docState.file?.url && (
             <button
               type="button"
@@ -443,6 +456,7 @@ function UploadDocCard({
               e.stopPropagation();
               setDocState(config.type, { status: 'idle', progress: 0, file: undefined, ocr: undefined });
               useWizardStore.getState().setOcrDone(false);
+              if (config.type === 'certificado') setCarnetBinacionalMode(false);
               if (inputRef.current) inputRef.current.value = '';
             }}
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
@@ -450,6 +464,21 @@ function UploadDocCard({
             <RotateCcw size={12} />
             Cambiar
           </button>
+          </div>
+          {config.type === 'certificado' && !carnetBinacionalMode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCarnetBinacionalMode(true);
+                setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
+                toast.success('Carnet colombiano', 'Cédula y licencia pasan a opcionales.', 2500);
+              }}
+              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors"
+            >
+              Es carnet colombiano / binacional
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -472,7 +501,7 @@ import { useProductConfig } from '../../hooks/useProductConfig';
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 export function OcrStep() {
-  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador, builderProduct } = useWizardStore();
+  const { documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador, builderProduct, carnetBinacionalMode } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
 
@@ -504,7 +533,7 @@ export function OcrStep() {
   }
 
   const { requiredDocs: effectiveRequired, optionalDocs: effectiveOptional } =
-    adjustDocsForBinacionalCarnet(requiredDocs, optionalDocs, documents, hasVehicle);
+    adjustDocsForBinacionalCarnet(requiredDocs, optionalDocs, documents, hasVehicle, carnetBinacionalMode);
 
   const visibleDocs = DOCS.filter(
     (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),

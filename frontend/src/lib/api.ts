@@ -25,6 +25,8 @@ export interface UploadResponse {
    */
   ocrFailed?: boolean;
   ocrError?: string;
+  /** Certificado vehicular colombiano/binacional — cédula y licencia opcionales. */
+  carnetBinacional?: boolean;
 }
 
 /**

@@ -199,4 +199,6 @@ export interface WizardState {
   quoteVehicleSignature: string | null;
   /** Datos dinámicos del canal (SSO Delegate) para emisión dinámica */
   metadataCanal: Record<string, any> | null;
+  /** Carnet colombiano/binacional detectado — solo certificado obligatorio. */
+  carnetBinacionalMode: boolean;
 }

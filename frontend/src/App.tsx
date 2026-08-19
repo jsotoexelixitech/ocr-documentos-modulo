@@ -39,7 +39,7 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, nextStep, goTo, setMetadataCanal, builderProduct } = useWizardStore();
+  const { step, documents, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
@@ -116,6 +116,7 @@ export default function App() {
       optionalDocs as any,
       documents,
       hasVehicle,
+      carnetBinacionalMode,
     );
   }
 

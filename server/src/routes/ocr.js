@@ -172,6 +172,11 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
 
     const fileName = path.basename(normalized.filePath);
     const empresaSeg = req.empresa?.id ? String(req.empresa.id) : 'shared';
+    const carnetBinacional =
+      docType === 'certificado'
+      && !ocrResult.ocrFailed
+      && (ocrResult.fields?.tipoCarnet === 'binacional'
+        || ocrResult.fields?.tipoPlaca === 'binacional');
     return res.status(200).json({
       success: true,
       message: ocrResult.ocrFailed
@@ -187,6 +192,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
       },
       ocr: ocrResult.fields,
       ocrProvider: ocrResult.provider,
+      ...(carnetBinacional ? { carnetBinacional: true } : {}),
       ...(ocrResult.ocrFailed ? { ocrFailed: true } : {}),
       ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
       ...(ocrResult.error ? { ocrError: ocrResult.error } : {}),
