@@ -180,6 +180,27 @@ export function clasificarPostQuote(params: {
   return { itipoDiligencia: 'C', primaAnualBs, umbralBs, tcBcv };
 }
 
+/** Documentos originales RCV al OCR: cédula + licencia + certificado. */
+export const RCV_OCR_ENTRY_REQUIRED: DiligenciaDocType[] = [
+  'cedula',
+  'licencia',
+  'certificado',
+];
+
+/**
+ * Slots OCR RCV al inicio: siempre originales del vehículo.
+ * DDS/DDC se confirma post-cotización en emisión (Circular SAA-02-1079).
+ */
+export function resolveRcvOcrEntryDocs(fallback: {
+  required: DiligenciaDocType[];
+  optional: DiligenciaDocType[];
+}): { required: DiligenciaDocType[]; optional: DiligenciaDocType[] } {
+  return {
+    required: fallback.required.length ? fallback.required : RCV_OCR_ENTRY_REQUIRED,
+    optional: fallback.optional,
+  };
+}
+
 export function buildExpedienteFromDocuments(
   documents: Partial<Record<DiligenciaDocType, { file?: { url?: string }; hash?: string }>>,
 ): ExpedienteEntry[] {

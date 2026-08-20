@@ -26,6 +26,7 @@ import {
   getOptionalDocs,
   getRequiredDocs,
   preClasificarDiligencia,
+  resolveRcvOcrEntryDocs,
 } from './lib/diligencia';
 import type { DocType } from './types';
 
@@ -92,17 +93,28 @@ export default function App() {
   }
 
   function resolveEffectiveOcrDocs(): { requiredDocs: DocType[]; optionalDocs: DocType[] } {
-    const itipoDiligencia = diligencia?.itipoDiligencia ?? preClasificarDiligencia(tomador.tipoDoc);
-    let requiredDocs: DocType[] = getRequiredDocs(
-      config as Record<string, unknown> | null,
-      itipoDiligencia,
-      product.docs.required,
-    );
-    let optionalDocs: DocType[] = getOptionalDocs(
-      config as Record<string, unknown> | null,
-      itipoDiligencia,
-      product.docs.optional,
-    );
+    const hasVehicle = builderProduct
+      ? branchHasVehicle(builderProduct.branch)
+      : product.hasVehicle;
+
+    let requiredDocs: DocType[];
+    let optionalDocs: DocType[];
+
+    if (product.id === 'rcv' && hasVehicle && !builderProduct) {
+      ({ required: requiredDocs, optional: optionalDocs } = resolveRcvOcrEntryDocs(product.docs));
+    } else {
+      const itipoDiligencia = diligencia?.itipoDiligencia ?? preClasificarDiligencia(tomador.tipoDoc);
+      requiredDocs = getRequiredDocs(
+        config as Record<string, unknown> | null,
+        itipoDiligencia,
+        product.docs.required,
+      );
+      optionalDocs = getOptionalDocs(
+        config as Record<string, unknown> | null,
+        itipoDiligencia,
+        product.docs.optional,
+      );
+    }
 
     if (builderCatalogMode && builderProduct) {
       const slots = resolveBuilderDocuments(builderProduct);
@@ -112,7 +124,7 @@ export default function App() {
       const slots = resolveBuilderDocuments(builderProduct);
       requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
       optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
-    } else if (config?.documentos && !config?.documentosPorDiligencia) {
+    } else if (product.id !== 'rcv' && config?.documentos && !config?.documentosPorDiligencia) {
       if (Array.isArray(config.documentos)) {
         const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
         requiredDocs = docsArr.filter((d) => d.activo && d.obligatorio).map((d) => d.key as DocType);
@@ -123,10 +135,6 @@ export default function App() {
         optionalDocs = Object.keys(docs).filter((k) => docs[k].activo && !docs[k].obligatorio) as DocType[];
       }
     }
-
-    const hasVehicle = builderProduct
-      ? branchHasVehicle(builderProduct.branch)
-      : product.hasVehicle;
 
     return adjustDocsForBinacionalCarnet(
       requiredDocs,

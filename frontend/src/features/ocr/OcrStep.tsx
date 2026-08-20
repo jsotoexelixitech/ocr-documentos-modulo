@@ -524,8 +524,8 @@ import { useProductConfig } from '../../hooks/useProductConfig';
 import {
   getOptionalDocs,
   getRequiredDocs,
-  diligenciaLabel,
   preClasificarDiligencia,
+  resolveRcvOcrEntryDocs,
 } from '../../lib/diligencia';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
@@ -547,22 +547,29 @@ export function OcrStep() {
 
   // Documentos según catálogo Exélixi, Nexus o producto legacy (rcv/funerario).
   const itipoDiligencia = diligencia?.itipoDiligencia ?? preClasificarDiligencia(tomador.tipoDoc);
-  let requiredDocs: DocType[] = getRequiredDocs(
-    config as Record<string, unknown> | null,
-    itipoDiligencia,
-    product.docs.required,
-  );
-  let optionalDocs: DocType[] = getOptionalDocs(
-    config as Record<string, unknown> | null,
-    itipoDiligencia,
-    product.docs.optional,
-  );
+  let requiredDocs: DocType[];
+  let optionalDocs: DocType[];
+
+  if (product.id === 'rcv' && hasVehicle && !builderProduct) {
+    ({ required: requiredDocs, optional: optionalDocs } = resolveRcvOcrEntryDocs(product.docs));
+  } else {
+    requiredDocs = getRequiredDocs(
+      config as Record<string, unknown> | null,
+      itipoDiligencia,
+      product.docs.required,
+    );
+    optionalDocs = getOptionalDocs(
+      config as Record<string, unknown> | null,
+      itipoDiligencia,
+      product.docs.optional,
+    );
+  }
 
   if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
     optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
-  } else if (config?.documentos && !config?.documentosPorDiligencia) {
+  } else if (product.id !== 'rcv' && config?.documentos && !config?.documentosPorDiligencia) {
     if (Array.isArray(config.documentos)) {
       const docsArr = config.documentos as { key: string; activo: boolean; obligatorio: boolean }[];
       requiredDocs = docsArr.filter(d => d.activo && d.obligatorio).map(d => d.key as DocType);
@@ -720,7 +727,7 @@ export function OcrStep() {
             Aceptamos JPG, PNG, SVG o PDF.
             {product.id === 'rcv' && (
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
-                Perfil activo: {diligenciaLabel(itipoDiligencia)}
+                Documentos originales: cédula, licencia de conducir y certificado del vehículo
               </span>
             )}
           </p>
