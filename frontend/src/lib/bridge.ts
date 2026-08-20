@@ -220,11 +220,11 @@ function makeBridge(): BridgeAPI {
   };
 
   // Campos cuyo valor NO debe sobrescribirse durante la hidratación.
-  // Cada módulo gestiona su propio step interno (OCR=1, Form=2/3, Emisión=4, Pagos=5/6).
+  // Solo OCR (order=1) conserva documents locales al rehidratar.
   const HYDRATE_EXCLUDE = new Set([
     'step',
-    'documents',     // OCR mantiene su estado de progreso local
-    'quoteState',    // estados de UI transitorios
+    ...(order === 1 ? ['documents' as const] : []),
+    'quoteState',
     'quoteError',
   ]);
 
