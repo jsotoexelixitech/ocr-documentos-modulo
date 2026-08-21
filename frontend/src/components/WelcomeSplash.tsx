@@ -20,7 +20,7 @@ const BRAND = {
 function isChainedFlow(): boolean {
   try {
     const p = new URLSearchParams(window.location.search);
-    return Boolean(p.get('sid') && p.get('nexus_token'));
+    return Boolean(p.get('sid'));
   } catch {
     return false;
   }
