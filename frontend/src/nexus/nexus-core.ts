@@ -34,6 +34,29 @@ function useModuleProxyBuild(): boolean {
   return flag === '1' || flag === 'true';
 }
 
+/** QA/dev: si el build trae cierrelmds pero la página es nexusqa, usar /nexus-api del host actual. */
+function resolveSameOriginNexusApi(
+  trimmed: string,
+  moduleOnHttps: string | null,
+): string | null {
+  if (typeof window === 'undefined' || window.location.protocol !== 'https:') {
+    return null;
+  }
+  let configuredHost = '';
+  try {
+    if (trimmed && !INTERNAL_HTTP_RE.test(trimmed)) {
+      configuredHost = new URL(trimmed).hostname;
+    }
+  } catch {
+    /* ignore */
+  }
+  const pageHost = window.location.hostname;
+  if (!configuredHost || configuredHost !== pageHost) {
+    return moduleOnHttps ?? `${window.location.origin}/nexus-api`;
+  }
+  return null;
+}
+
 /**
  * Resuelve nexus-api en el navegador.
  * QA (VITE_NEXUS_USE_MODULE_PROXY=1): {módulo}/nexus-api → vite preview → :3092.
@@ -46,13 +69,13 @@ export function resolveNexusApiUrl(configured?: string): string {
   }
 
   const trimmed = configured?.trim().replace(/\/$/, '') ?? '';
-  const pageIsHttps =
-    typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const sameOrigin = resolveSameOriginNexusApi(trimmed, moduleOnHttps);
+  if (sameOrigin) return sameOrigin;
 
   if (trimmed && !INTERNAL_HTTP_RE.test(trimmed)) {
     return trimmed;
   }
-  if (pageIsHttps && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
     return moduleOnHttps ?? `${window.location.origin}/nexus-api`;
   }
   if (trimmed) return trimmed;
