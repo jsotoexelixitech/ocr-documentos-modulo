@@ -39,6 +39,22 @@ export function isBinacionalCarnet(cert?: CertOcr | null): boolean {
 
   const tipoRaw = String(cert.tipoCarnet || cert.tipo_carnet || '').toLowerCase().trim();
   const placaTipo = String(cert.tipoPlaca || '').toLowerCase().trim();
+  const placaNorm = String(cert.placa || '').replace(/[\s-]/g, '').toUpperCase();
+
+  const isExplicitColombiaDoc =
+    tipoRaw === 'colombia' || tipoRaw === 'colombiano';
+
+  // Placa INTT Venezuela → nacional; Gemini a veces devuelve tipoCarnet=binacional por error
+  if (looksLikeVePlacaNacional(placaNorm)) {
+    return isExplicitColombiaDoc;
+  }
+
+  const isExplicitBinacional =
+    tipoRaw === 'binacional'
+    || isExplicitColombiaDoc
+    || placaTipo === 'binacional';
+
+  if (isExplicitBinacional) return true;
 
   const hasLinea = Boolean(sanitizeOcrString(cert.linea));
   const hasCilindrada = Boolean(sanitizeOcrString(cert.cilindrada));
@@ -47,22 +63,7 @@ export function isBinacionalCarnet(cert?: CertOcr | null): boolean {
     sanitizeOcrString(cert.serialMotor) || sanitizeOcrString(cert.numeroMotor),
   );
 
-  const placaNorm = String(cert.placa || '').replace(/[\s-]/g, '').toUpperCase();
-  const looksVeNacional =
-    looksLikeVePlacaNacional(placaNorm)
-    && !hasLinea
-    && !hasCilindrada;
-
-  const isExplicitColombia =
-    tipoRaw === 'binacional'
-    || tipoRaw === 'colombia'
-    || tipoRaw === 'colombiano'
-    || placaTipo === 'binacional';
-
-  if (isExplicitColombia) return true;
-
   let isBinacional = hasLinea && (hasCilindrada || hasVin || hasSerialMotor);
-  if (isBinacional && looksVeNacional) isBinacional = false;
   if (!isBinacional && looksLikeCoPlaca(placaNorm)) {
     isBinacional = true;
   }

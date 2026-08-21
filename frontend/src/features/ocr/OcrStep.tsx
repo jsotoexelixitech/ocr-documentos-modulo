@@ -250,8 +250,8 @@ function UploadDocCard({
       if (config.type === 'certificado') {
         const binacional =
           Boolean(result.carnetBinacional) || isBinacionalCarnet(result.ocr as Parameters<typeof isBinacionalCarnet>[0]);
+        setCarnetBinacionalMode(binacional);
         if (binacional) {
-          setCarnetBinacionalMode(true);
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
         }
         const tomadorFromCert = extractTomadorFromCertificado(result.ocr);

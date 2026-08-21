@@ -187,27 +187,18 @@ function normalizeCertificadoFields(fields) {
   if (fields.numeroMotor && !fields.serialMotor) fields.serialMotor = fields.numeroMotor;
   if (fields.numero_motor && !fields.serialMotor) fields.serialMotor = fields.numero_motor;
 
-  let isBinacional =
-    tipoRaw === 'binacional' ||
-    tipoRaw === 'colombia' ||
-    tipoRaw === 'colombiano' ||
-    looksLikeCoPlaca(placaNorm) ||
-    (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
+  let isBinacional;
+  const isExplicitColombiaDoc =
+    tipoRaw === 'colombia' || tipoRaw === 'colombiano';
 
-  // Carnet INTT venezolano: Gemini suele marcar binacional por error (placa AC124KB, sin LINEA/CC)
-  const looksVeNacional =
-    looksLikeVePlacaNacional(placaNorm) &&
-    !hasLinea &&
-    (fields.cilindrada == null || isNullishOcrValue(fields.cilindrada));
-  if (
-    isBinacional &&
-    looksVeNacional &&
-    tipoRaw !== 'binacional' &&
-    tipoRaw !== 'colombia' &&
-    tipoRaw !== 'colombiano' &&
-    !looksLikeCoPlaca(placaNorm)
-  ) {
+  if (looksLikeVePlacaNacional(placaNorm) && !isExplicitColombiaDoc) {
     isBinacional = false;
+  } else {
+    isBinacional =
+      isExplicitColombiaDoc ||
+      tipoRaw === 'binacional' ||
+      looksLikeCoPlaca(placaNorm) ||
+      (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
   }
 
   if (isBinacional) {
