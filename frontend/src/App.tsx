@@ -11,6 +11,7 @@ import { toast } from './store/toastStore';
 import { publicAsset } from './lib/app-base';
 import { ChevronRight, Sparkles, ShieldCheck, CheckCircle2, ScanLine, Lock } from 'lucide-react';
 import { useEffect } from 'react';
+import { applyMetadataFromNexusToken } from './lib/nexus-token-client';
 
 import { useProductConfig } from './hooks/useProductConfig';
 import { CatalogPickerStep } from './features/catalog/CatalogPickerStep';
@@ -53,8 +54,12 @@ export default function App() {
   const builderCatalogMode = useBuilderCatalog();
   const showCatalogPicker = builderCatalogMode && !builderProduct;
 
-  // Interceptar SSO Delegation
+  // Interceptar SSO Delegation (nexus_token + legacy session_token)
   useEffect(() => {
+    applyMetadataFromNexusToken('nexus_access_token_ocr', (metadata) => {
+      setMetadataCanal(metadata);
+    });
+
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get('session_token');
     
