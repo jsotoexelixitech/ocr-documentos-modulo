@@ -794,14 +794,46 @@ export function OcrStep() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { label: 'Nombre', value: documents.cedula.ocr?.nombre },
-                { label: 'Apellido', value: documents.cedula.ocr?.apellido },
-                { label: 'Documento', value: `${documents.cedula.ocr?.tipoDoc ?? 'V'}-${documents.cedula.ocr?.identificacion ?? ''}` },
-                hasVehicle
-                  ? { label: 'Placa', value: documents.certificado.ocr?.placa }
-                  : { label: 'Fecha nac.', value: documents.cedula.ocr?.fechaNacimiento },
-              ].map(({ label, value }, idx) =>
+              {(() => {
+                // Cédula opcional en carnet binacional: datos vienen del certificado → tomador.
+                const fromCert = hasVehicle
+                  ? extractTomadorFromCertificado(documents.certificado?.ocr)
+                  : null;
+                const nombre =
+                  documents.cedula.ocr?.nombre
+                  || tomador.nombre
+                  || fromCert?.nombre
+                  || '';
+                const apellido =
+                  documents.cedula.ocr?.apellido
+                  || tomador.apellido
+                  || fromCert?.apellido
+                  || '';
+                const identificacion = String(
+                  documents.cedula.ocr?.identificacion
+                  || tomador.identificacion
+                  || fromCert?.identificacion
+                  || '',
+                ).replace(/\D/g, '');
+                const tipoDoc =
+                  documents.cedula.ocr?.tipoDoc
+                  || tomador.tipoDoc
+                  || fromCert?.tipoDoc
+                  || (identificacion ? 'V' : '');
+                const documento =
+                  identificacion
+                    ? `${tipoDoc || 'V'}-${identificacion}`
+                    : '';
+
+                return [
+                  { label: 'Nombre', value: nombre },
+                  { label: 'Apellido', value: apellido },
+                  { label: 'Documento', value: documento },
+                  hasVehicle
+                    ? { label: 'Placa', value: documents.certificado.ocr?.placa }
+                    : { label: 'Fecha nac.', value: documents.cedula.ocr?.fechaNacimiento },
+                ];
+              })().map(({ label, value }, idx) =>
                 value ? (
                   <div
                     key={label}
