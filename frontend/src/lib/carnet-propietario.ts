@@ -1,3 +1,5 @@
+import { normalizeIdentificacionDigits, inferTipoDocFromRaw } from './identificacion';
+
 type CertTomadorOcr = {
   nombre?: string;
   apellido?: string;
@@ -39,20 +41,24 @@ export function extractTomadorFromCertificado(cert?: CertTomadorOcr | null): {
     nombre = split.nombre;
   }
 
-  const identificacion = String(
+  const identificacion = normalizeIdentificacionDigits(
     cert.identificacion
     || cert.propietarioIdentificacion
-    || cert.identificacionPropietario
-    || '',
-  ).replace(/\D/g, '');
+    || cert.identificacionPropietario,
+  );
 
   if (!nombre && !apellido && !identificacion) return null;
 
-  let tipoDoc = cert.tipoDoc || 'E';
+  let tipoDoc =
+    cert.tipoDoc
+    || inferTipoDocFromRaw(cert.identificacion)
+    || inferTipoDocFromRaw(cert.identificacionPropietario)
+    || 'V';
   if (cert.tipoDocPropietario) {
     const u = cert.tipoDocPropietario.toUpperCase();
     if (u.includes('NIT') || u === 'J') tipoDoc = 'J';
-    else tipoDoc = 'E';
+    else if (u.includes('CE') || u === 'E') tipoDoc = 'E';
+    else if (u.includes('CC') || u === 'V') tipoDoc = 'E';
   }
 
   return { nombre, apellido, identificacion, tipoDoc };

@@ -19,6 +19,11 @@ import {
   resolveTipoPlacaFromCert,
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
+import {
+  formatDocumentoLabel,
+  inferTipoDocFromRaw,
+  normalizeIdentificacionDigits,
+} from '../../lib/identificacion';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
@@ -240,6 +245,22 @@ function UploadDocCard({
         hash: result.hash,
       });
 
+      if (config.type === 'cedula' && result.ocr && typeof result.ocr === 'object') {
+        const rawId = result.ocr.identificacion as string | undefined;
+        const digits = normalizeIdentificacionDigits(rawId);
+        const tipoDoc =
+          (result.ocr.tipoDoc as string | undefined)
+          || inferTipoDocFromRaw(rawId)
+          || (digits ? 'V' : undefined);
+        setDocState(config.type, {
+          ocr: {
+            ...result.ocr,
+            identificacion: digits || undefined,
+            ...(tipoDoc ? { tipoDoc } : {}),
+          },
+        });
+      }
+
       if (config.type === 'cedula' && result.ocr?.tipoDoc) {
         const tipo = String(result.ocr.tipoDoc).trim().toUpperCase();
         const { setDiligencia } = useWizardStore.getState();
@@ -256,7 +277,7 @@ function UploadDocCard({
         }
         const tomadorFromCert = extractTomadorFromCertificado(result.ocr);
         const cedulaId = useWizardStore.getState().documents.cedula?.ocr?.identificacion;
-        if (tomadorFromCert && !cedulaId) {
+        if (tomadorFromCert?.identificacion && !cedulaId) {
           setTomador(tomadorFromCert);
         }
       }
@@ -641,8 +662,8 @@ export function OcrStep() {
         setTomador({
           nombre: cedula.nombre ?? '',
           apellido: cedula.apellido ?? '',
-          identificacion: cedula.identificacion ?? '',
-          tipoDoc: cedula.tipoDoc ?? 'V',
+          identificacion: normalizeIdentificacionDigits(cedula.identificacion),
+          tipoDoc: cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.identificacion) ?? 'V',
           fechaNac: cedula.fechaNacimiento ?? '',
           sexo: matchCatalog(cedula.sexo, sexoOpts),
           estadoCivil: matchCatalog(cedula.estadoCivil, ecOpts),
@@ -654,7 +675,7 @@ export function OcrStep() {
       if (cert) {
         if (!cedula?.identificacion && !cedula?.nombre) {
           const tomadorFromCert = extractTomadorFromCertificado(cert);
-          if (tomadorFromCert) setTomador(tomadorFromCert);
+          if (tomadorFromCert?.identificacion) setTomador(tomadorFromCert);
         }
         setVehicle({
           placa: cert.placa ?? '',
@@ -809,21 +830,18 @@ export function OcrStep() {
                   || tomador.apellido
                   || fromCert?.apellido
                   || '';
-                const identificacion = String(
+                const identificacion = normalizeIdentificacionDigits(
                   documents.cedula.ocr?.identificacion
                   || tomador.identificacion
-                  || fromCert?.identificacion
-                  || '',
-                ).replace(/\D/g, '');
+                  || fromCert?.identificacion,
+                );
                 const tipoDoc =
                   documents.cedula.ocr?.tipoDoc
                   || tomador.tipoDoc
                   || fromCert?.tipoDoc
+                  || inferTipoDocFromRaw(documents.cedula.ocr?.identificacion)
                   || (identificacion ? 'V' : '');
-                const documento =
-                  identificacion
-                    ? `${tipoDoc || 'V'}-${identificacion}`
-                    : '';
+                const documento = formatDocumentoLabel(identificacion, tipoDoc);
 
                 return [
                   { label: 'Nombre', value: nombre },

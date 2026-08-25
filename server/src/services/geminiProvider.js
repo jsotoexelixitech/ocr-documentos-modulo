@@ -137,6 +137,62 @@ function mapColombianOwnerDocType(raw) {
   return 'E';
 }
 
+function mapVenezuelanOwnerDocType(raw) {
+  const u = String(raw || '').toUpperCase().replace(/\./g, '').trim();
+  if (u.includes('NIT') || u === 'J') return 'J';
+  if (u.includes('E') || u.includes('EXTRANJ')) return 'E';
+  return 'V';
+}
+
+function normalizeIdentificacionDigits(raw) {
+  return String(raw ?? '').replace(/\D/g, '');
+}
+
+function normalizeCedulaFields(fields) {
+  if (!fields || typeof fields !== 'object') return fields;
+  const raw = fields.identificacion ?? fields.cedula ?? fields.numeroDocumento;
+  const digits = normalizeIdentificacionDigits(raw);
+  if (digits) fields.identificacion = digits;
+  if (!fields.tipoDoc && raw) {
+    const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]?/);
+    if (m) fields.tipoDoc = m[1] === 'P' ? 'P' : m[1];
+  }
+  if (!fields.tipoDoc && digits) fields.tipoDoc = 'V';
+  return fields;
+}
+
+function mapOwnerFromCarnet(fields, mapDocType) {
+  const ownerRaw = fields.propietario || fields.propietarioCompleto;
+  if (ownerRaw && !isNullishOcrValue(ownerRaw)) {
+    const parts = String(ownerRaw).trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const mid = Math.floor(parts.length / 2);
+      fields.propietarioApellido = parts.slice(0, mid).join(' ');
+      fields.propietarioNombre = parts.slice(mid).join(' ');
+      fields.apellido = fields.propietarioApellido;
+      fields.nombre = fields.propietarioNombre;
+    } else if (parts.length === 1) {
+      fields.apellido = parts[0];
+    }
+  }
+
+  let idRaw =
+    fields.identificacionPropietario
+    || fields.propietarioIdentificacion
+    || fields.identificacion;
+  if (idRaw != null && !isNullishOcrValue(idRaw)) {
+    const digits = normalizeIdentificacionDigits(idRaw);
+    if (digits) {
+      fields.propietarioIdentificacion = digits;
+      fields.identificacion = digits;
+    }
+  }
+
+  if (fields.identificacion || fields.nombre || fields.apellido) {
+    fields.tipoDoc = mapDocType(fields.tipoDocPropietario || fields.tipoDoc);
+  }
+}
+
 function mapPropietarioFromBinacionalCarnet(fields) {
   const ownerRaw = fields.propietario || fields.propietarioCompleto;
   if (ownerRaw && !isNullishOcrValue(ownerRaw)) {
@@ -147,9 +203,12 @@ function mapPropietarioFromBinacionalCarnet(fields) {
     fields.nombre = nombre;
   }
 
-  let idRaw = fields.identificacionPropietario || fields.propietarioIdentificacion;
+  let idRaw =
+    fields.identificacionPropietario
+    || fields.propietarioIdentificacion
+    || fields.identificacion;
   if (idRaw != null && !isNullishOcrValue(idRaw)) {
-    const digits = String(idRaw).replace(/\D/g, '');
+    const digits = normalizeIdentificacionDigits(idRaw);
     if (digits) {
       fields.propietarioIdentificacion = digits;
       fields.identificacion = digits;
@@ -157,8 +216,12 @@ function mapPropietarioFromBinacionalCarnet(fields) {
   }
 
   if (fields.identificacion || fields.nombre || fields.apellido) {
-    fields.tipoDoc = mapColombianOwnerDocType(fields.tipoDocPropietario);
+    fields.tipoDoc = mapColombianOwnerDocType(fields.tipoDocPropietario || fields.tipoDoc);
   }
+}
+
+function mapPropietarioFromNacionalCarnet(fields) {
+  mapOwnerFromCarnet(fields, mapVenezuelanOwnerDocType);
 }
 
 /**
@@ -319,6 +382,8 @@ function normalizeCertificadoFields(fields) {
     const c = String(fields.color).trim();
     fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
   }
+
+  mapPropietarioFromNacionalCarnet(fields);
 
   delete fields.anio;
   delete fields.vin;
@@ -503,20 +568,20 @@ const SCHEMAS = {
       propietario: {
         type: Type.STRING,
         description:
-          'Solo Colombia binacional: texto completo del campo PROPIETARIO APELLIDO(S) Y NOMBRE(S) ' +
-          '(ej. "SCROCCHI MEDINA DAMIAN SEBASTIAN"). Venezuela INTT: null.',
+          'Nombre completo del propietario. Colombia: PROPIETARIO APELLIDO(S) Y NOMBRE(S). ' +
+          'Venezuela INTT: titular en TITULO DE PROPIEDAD / CERTIFICADO DE CIRCULACION.',
       },
       identificacionPropietario: {
         type: Type.STRING,
         description:
-          'Solo Colombia binacional: numero de IDENTIFICACION del propietario (solo digitos, ' +
-          'ej. "1018525077" de "C.C. 1018525077"). Venezuela INTT: null.',
+          'Cédula del propietario (solo digitos). Colombia: tras C.C. / C.E. ' +
+          'Venezuela INTT: C.I. / Cédula / RIF del titular si aparece en el documento.',
       },
       tipoDocPropietario: {
         type: Type.STRING,
         description:
-          'Solo Colombia binacional: prefijo del documento del propietario (CC, CE, NIT). ' +
-          'Venezuela INTT: null.',
+          'Prefijo del documento del propietario (V, E, J, CC, CE, NIT). ' +
+          'Venezuela: V o E según C.I.; Colombia: CC, CE o NIT.',
       },
     },
     required: ['documentoTipo', 'tipoCarnet'],
@@ -578,6 +643,9 @@ const PROMPTS = {
     'NUNCA uses el numero tras "/" en la linea del MODELO (ej. "BR200-2 / 22"). ' +
     'MODELO: codigo completo bajo la marca (ej. "BR200-2"). linea y cilindrada y serialMotor: null. ' +
     'serial: serial de carroceria. Extrae COLOR si aparece. ' +
+    'propietario = nombre del titular si aparece en el documento. ' +
+    'identificacionPropietario = C.I. / cédula del titular (solo digitos). ' +
+    'tipoDocPropietario = V, E o J segun el prefijo del documento. ' +
     '=== SI tipoCarnet=binacional (Colombia) === ' +
     'PLACA = campo PLACA / No. DE PLACA. ' +
     'linea = campo LINEA (equivale al modelo comercial: X5000, T800, 320I…). ' +
@@ -652,6 +720,9 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
 
       if (docType === 'certificado' && parsed) {
         normalizeCertificadoFields(parsed);
+      }
+      if (docType === 'cedula' && parsed) {
+        normalizeCedulaFields(parsed);
       }
 
       return { fields: parsed, elapsedMs, attempt: attempt + 1 };
