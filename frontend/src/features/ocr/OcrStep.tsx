@@ -642,14 +642,6 @@ export function OcrStep() {
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
         : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4';
 
-  const certOcr = hasVehicle ? documents.certificado?.ocr : undefined;
-
-  useEffect(() => {
-    if (!hasVehicle || !certOcr || documents.certificado?.status !== 'done') return;
-    if (!isBinacionalCarnet(certOcr)) return;
-    setVehicle({ tipoPlaca: 'binacional' });
-  }, [hasVehicle, certOcr, documents.certificado?.status, setVehicle]);
-
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
       const cedula = documents.cedula.ocr;

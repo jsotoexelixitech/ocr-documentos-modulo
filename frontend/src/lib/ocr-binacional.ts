@@ -1,4 +1,5 @@
 import type { DocType, DocumentState } from '../types';
+import { looksLikePlacaExtranjeraGenerica } from './placa-tipo';
 
 type CertOcr = {
   tipoCarnet?: string;
@@ -75,9 +76,10 @@ export function resolveTipoPlacaFromCert(
   cert?: CertOcr | null,
 ): 'nacional' | 'extranjera' | 'binacional' {
   if (!cert) return 'nacional';
-  if (isBinacionalCarnet(cert)) return 'binacional';
   const placaTipo = String(cert.tipoPlaca || '').toLowerCase();
   if (placaTipo === 'extranjera') return 'extranjera';
+  if (looksLikePlacaExtranjeraGenerica(cert.placa)) return 'extranjera';
+  if (isBinacionalCarnet(cert)) return 'binacional';
   return 'nacional';
 }
 
