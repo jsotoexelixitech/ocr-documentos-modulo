@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../../store/toastStore';
 import { TipoPlacaSelector } from '../../components/TipoPlacaSelector';
-import { placaMaxLength, placaPlaceholder } from '../../lib/placa-tipo';
+import { placaMaxLength, placaPlaceholder, validatePlacaMessage } from '../../lib/placa-tipo';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
 import { useBuilderCatalog } from '../../lib/builder-catalog';
 import { getProductId } from '../../lib/product';
@@ -358,11 +358,8 @@ export function VehicleStep() {
     const len  = (v?: string) => (v ?? '').trim().length;
     const digs = (v?: string) => (v ?? '').replace(/\D/g, '').length;
 
-    if (req(vehicle.placa)) {
-      e.placa = 'La placa es obligatoria';
-    } else if (len(vehicle.placa) < 6) {
-      e.placa = 'La placa debe tener al menos 6 caracteres';
-    }
+    const placaErr = validatePlacaMessage(vehicle.placa, vehicle.tipoPlaca ?? 'nacional');
+    if (placaErr) e.placa = placaErr;
 
     if (req(vehicle.año)) e.año = 'Selecciona el año del vehículo';
     if (req(vehicle.marca))  e.marca  = 'La marca es obligatoria';

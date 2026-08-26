@@ -58,3 +58,33 @@ export function placaPlaceholder(tipoPlaca: string): string {
 export function placaMaxLength(tipoPlaca: string): number {
   return tipoPlaca === 'nacional' ? 8 : 12;
 }
+
+/** Alineado con emision-api / nest validateEmissionAuto (6–8 alfanuméricos VE). */
+export const PLACA_NACIONAL_MIN = 6;
+export const PLACA_NACIONAL_MAX = 8;
+
+export function validatePlacaMessage(
+  placa?: string | null,
+  tipoPlaca: string = 'nacional',
+): string | undefined {
+  const p = normalizePlaca(placa);
+  if (!p) return 'La placa es obligatoria';
+  if (tipoPlaca === 'nacional') {
+    if (p.length < PLACA_NACIONAL_MIN) {
+      return `La placa debe tener al menos ${PLACA_NACIONAL_MIN} caracteres`;
+    }
+    if (p.length > PLACA_NACIONAL_MAX) {
+      return `La placa no puede superar ${PLACA_NACIONAL_MAX} caracteres (formato venezolano)`;
+    }
+    if (!/^[A-Z0-9]+$/.test(p)) {
+      return 'La placa solo puede contener letras y números';
+    }
+    return undefined;
+  }
+  if (p.length < 4) return 'La placa debe tener al menos 4 caracteres';
+  if (p.length > 12) return 'La placa no puede superar 12 caracteres';
+  if (!/^[A-Z0-9-]+$/.test(p)) {
+    return 'La placa solo puede contener letras, números o guiones';
+  }
+  return undefined;
+}

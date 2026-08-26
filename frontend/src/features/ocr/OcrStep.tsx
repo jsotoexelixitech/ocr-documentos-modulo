@@ -95,7 +95,6 @@ function UploadDocCard({
   const setDocState = useWizardStore((s) => s.setDocState);
   const setVehicle = useWizardStore((s) => s.setVehicle);
   const setTomador = useWizardStore((s) => s.setTomador);
-  const carnetBinacionalMode = useWizardStore((s) => s.carnetBinacionalMode);
   const setCarnetBinacionalMode = useWizardStore((s) => s.setCarnetBinacionalMode);
 
   const statusVariant = {
@@ -510,20 +509,6 @@ function UploadDocCard({
             Cambiar
           </button>
           </div>
-          {config.type === 'certificado' && !carnetBinacionalMode && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setCarnetBinacionalMode(true);
-                setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
-                toast.success('Carnet colombiano', 'Cédula y licencia pasan a opcionales.', 2500);
-              }}
-              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors"
-            >
-              Es carnet colombiano / binacional
-            </button>
-          )}
         </div>
       )}
     </div>
