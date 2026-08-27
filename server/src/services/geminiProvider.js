@@ -148,16 +148,54 @@ function normalizeIdentificacionDigits(raw) {
   return String(raw ?? '').replace(/\D/g, '');
 }
 
+function isColombianIdentityDoc(fields) {
+  if (!fields || typeof fields !== 'object') return false;
+  const pais = String(fields.paisEmisor || fields.paisDocumento || '').toUpperCase();
+  if (pais === 'CO' || pais.includes('COLOMB')) return true;
+  const tipo = String(fields.tipoDoc || '').toUpperCase();
+  if (tipo === 'E' || tipo === 'CC' || tipo === 'CE') return true;
+  const hint = [
+    fields.documentoEmisor,
+    fields.tituloDocumento,
+    fields.nacionalidad,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toUpperCase();
+  return hint.includes('COLOMB') || hint.includes('CIUDADAN');
+}
+
 function normalizeCedulaFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
-  const raw = fields.identificacion ?? fields.cedula ?? fields.numeroDocumento;
+  const raw = fields.identificacion ?? fields.cedula ?? fields.numeroDocumento ?? fields.numero;
   const digits = normalizeIdentificacionDigits(raw);
   if (digits) fields.identificacion = digits;
   if (!fields.tipoDoc && raw) {
     const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]?/);
     if (m) fields.tipoDoc = m[1] === 'P' ? 'P' : m[1];
   }
-  if (!fields.tipoDoc && digits) fields.tipoDoc = 'V';
+  if (isColombianIdentityDoc(fields)) {
+    fields.tipoDoc = 'E';
+    fields.paisEmisor = 'CO';
+  } else if (!fields.tipoDoc && digits) {
+    fields.tipoDoc = 'V';
+  }
+  delete fields.paisDocumento;
+  delete fields.documentoEmisor;
+  delete fields.tituloDocumento;
+  delete fields.nacionalidad;
+  delete fields.numero;
+  return fields;
+}
+
+function normalizeLicenciaFields(fields) {
+  if (!fields || typeof fields !== 'object') return fields;
+  const raw = fields.numeroLicencia ?? fields.numero ?? fields.numeroDocumento;
+  if (raw != null && !isNullishOcrValue(raw)) {
+    fields.numeroLicencia = String(raw).replace(/\s+/g, '').trim();
+  }
+  delete fields.numero;
+  delete fields.numeroDocumento;
   return fields;
 }
 
@@ -224,19 +262,76 @@ function mapPropietarioFromNacionalCarnet(fields) {
   mapOwnerFromCarnet(fields, mapVenezuelanOwnerDocType);
 }
 
+/** Documento colombiano (Licencia de Tránsito) → placa extranjera, no binacional. */
+function isExtranjeroCarnetColombia(fields, tipoRaw, placaNorm, hasLinea) {
+  if (tipoRaw === 'extranjero') return true;
+  if (tipoRaw === 'colombia' || tipoRaw === 'colombiano') return true;
+  if (looksLikeCoPlaca(placaNorm)) return true;
+  return Boolean(
+    hasLinea
+    && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor),
+  );
+}
+
 /**
- * Normaliza campos del carnet vehicular (Venezuela INTT o Colombia binacional).
- *
- * Colombia (LICENCIA DE TRANSITO / TARJETA DE REGISTRO…):
- *   - LINEA  → modelo (nombre de línea/versión)
- *   - MODELO → año (4 dígitos)
- *   - VIN / NÚMERO DE IDENTIFICACIÓN → serial
- *   - NÚMERO DE MOTOR → serialMotor
+ * Mapeo de campos Licencia de Tránsito Colombia (LINEA→modelo, MODELO→año, etc.).
+ * Usado en flujo extranjero (vehículo/documento colombiano).
+ */
+function applyColombiaTransitDocMapping(fields) {
+  const linea = String(fields.linea || '').trim();
+  const modeloRaw = String(fields.modelo || '').trim();
+  const modeloIsYear = /^(19|20)\d{2}$/.test(modeloRaw);
+  let yearCandidate = fields.anio ?? fields['año'];
+  if ((yearCandidate == null || yearCandidate === '') && modeloIsYear) {
+    yearCandidate = modeloRaw;
+  }
+  fields.modelo = (linea || (!modeloIsYear ? modeloRaw : '') || null);
+  if (fields.modelo) fields.modelo = String(fields.modelo).toUpperCase();
+
+  if (yearCandidate != null && yearCandidate !== '') {
+    const yearStr = String(yearCandidate).match(/(?:19|20)\d{2}/)?.[0];
+    const añoNum = yearStr ? parseInt(yearStr, 10) : NaN;
+    const maxYear = new Date().getFullYear() + 1;
+    fields['año'] =
+      Number.isFinite(añoNum) && añoNum >= 1980 && añoNum <= maxYear
+        ? String(añoNum)
+        : null;
+  }
+
+  fields.serial = sanitizeVinOrMotor(fields.serial);
+  fields.serialMotor = sanitizeVinOrMotor(fields.serialMotor);
+  if (isNullishOcrValue(fields.modelo)) fields.modelo = null;
+  if (fields.cilindrada != null && fields.cilindrada !== '') {
+    fields.cilindrada = String(fields.cilindrada).trim();
+  } else {
+    fields.cilindrada = null;
+  }
+  if (fields.placa) {
+    fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();
+  }
+  if (fields.marca) fields.marca = String(fields.marca).trim().toUpperCase();
+  if (fields.color) {
+    const c = String(fields.color).trim();
+    fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
+  }
+
+  mapPropietarioFromBinacionalCarnet(fields);
+
+  delete fields.anio;
+  delete fields.vin;
+  delete fields.numeroMotor;
+  delete fields.numero_motor;
+}
+
+/**
+ * Normaliza campos del carnet vehicular.
+ * - nacional: Venezuela INTT
+ * - extranjero: Colombia (Licencia de Tránsito) → tipoPlaca extranjera
+ * - binacional: vehículo venezolano hacia Colombia (no confundir con docs CO)
  */
 function normalizeCertificadoFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
 
-  // Limpiar tokens "NULL" / "N/A" antes de ramificar nacional vs binacional
   for (const key of ['marca', 'modelo', 'linea', 'placa', 'serial', 'serialMotor', 'color', 'cilindrada', 'vin', 'numeroMotor', 'numero_motor']) {
     if (key in fields && isNullishOcrValue(fields[key])) fields[key] = null;
   }
@@ -245,73 +340,24 @@ function normalizeCertificadoFields(fields) {
   const hasLinea = Boolean(sanitizeOcrString(fields.linea));
   const placaNorm = String(fields.placa || '').replace(/[\s-]/g, '').toUpperCase();
 
-  // Unificar aliases que Gemini pueda devolver
   if (fields.vin && !fields.serial) fields.serial = fields.vin;
   if (fields.numeroMotor && !fields.serialMotor) fields.serialMotor = fields.numeroMotor;
   if (fields.numero_motor && !fields.serialMotor) fields.serialMotor = fields.numero_motor;
 
-  let isBinacional;
-  const isExplicitColombiaDoc =
-    tipoRaw === 'colombia' || tipoRaw === 'colombiano';
+  const isExtranjero = isExtranjeroCarnetColombia(fields, tipoRaw, placaNorm, hasLinea);
+  const isBinacional = !isExtranjero && tipoRaw === 'binacional';
 
-  if (looksLikeVePlacaNacional(placaNorm) && !isExplicitColombiaDoc) {
-    isBinacional = false;
-  } else {
-    isBinacional =
-      isExplicitColombiaDoc ||
-      tipoRaw === 'binacional' ||
-      looksLikeCoPlaca(placaNorm) ||
-      (hasLinea && (fields.cilindrada != null || fields.vin || fields.numeroMotor || fields.serialMotor));
+  if (isExtranjero) {
+    fields.tipoCarnet = 'extranjero';
+    fields.tipoPlaca = 'extranjera';
+    applyColombiaTransitDocMapping(fields);
+    return fields;
   }
 
   if (isBinacional) {
     fields.tipoCarnet = 'binacional';
     fields.tipoPlaca = 'binacional';
-
-    const linea = String(fields.linea || '').trim();
-    const modeloRaw = String(fields.modelo || '').trim();
-    // Si "modelo" parece un año (4 dígitos), úsalo como año y prioriza LINEA como modelo
-    const modeloIsYear = /^(19|20)\d{2}$/.test(modeloRaw);
-    let yearCandidate = fields.anio ?? fields['año'];
-    if ((yearCandidate == null || yearCandidate === '') && modeloIsYear) {
-      yearCandidate = modeloRaw;
-    }
-    fields.modelo = (linea || (!modeloIsYear ? modeloRaw : '') || null);
-    if (fields.modelo) fields.modelo = String(fields.modelo).toUpperCase();
-
-    if (yearCandidate != null && yearCandidate !== '') {
-      const yearStr = String(yearCandidate).match(/(?:19|20)\d{2}/)?.[0];
-      const añoNum = yearStr ? parseInt(yearStr, 10) : NaN;
-      const maxYear = new Date().getFullYear() + 1;
-      fields['año'] =
-        Number.isFinite(añoNum) && añoNum >= 1980 && añoNum <= maxYear
-          ? String(añoNum)
-          : null;
-    }
-
-    fields.serial = sanitizeVinOrMotor(fields.serial);
-    fields.serialMotor = sanitizeVinOrMotor(fields.serialMotor);
-    if (isNullishOcrValue(fields.modelo)) fields.modelo = null;
-    if (fields.cilindrada != null && fields.cilindrada !== '') {
-      fields.cilindrada = String(fields.cilindrada).trim();
-    } else {
-      fields.cilindrada = null;
-    }
-    if (fields.placa) {
-      fields.placa = String(fields.placa).replace(/[\s-]/g, '').toUpperCase();
-    }
-    if (fields.marca) fields.marca = String(fields.marca).trim().toUpperCase();
-    if (fields.color) {
-      const c = String(fields.color).trim();
-      fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
-    }
-
-    mapPropietarioFromBinacionalCarnet(fields);
-
-    delete fields.anio;
-    delete fields.vin;
-    delete fields.numeroMotor;
-    delete fields.numero_motor;
+    applyColombiaTransitDocMapping(fields);
     return fields;
   }
 
@@ -434,8 +480,10 @@ const DOC_TYPE_PROP = {
   enum: ['cedula', 'licencia', 'certificado', 'rif', 'desconocido'],
   description:
     'Tipo de documento DETECTADO en la imagen, INDEPENDIENTE de lo que se haya pedido. ' +
-    'Devuelve "cedula" si la imagen muestra "CEDULA DE IDENTIDAD". ' +
-    'Devuelve "licencia" si dice "Licencia para Conducir" (INTT venezolano). ' +
+    'Devuelve "cedula" si la imagen es documento de identidad personal: ' +
+    '"CEDULA DE IDENTIDAD" (Venezuela) O "CEDULA DE CIUDADANIA" / "REPUBLICA DE COLOMBIA" (Colombia). ' +
+    'Devuelve "licencia" si es licencia de conducir: ' +
+    '"Licencia para Conducir" (INTT Venezuela) O "Licencia de Conduccion" (Colombia / Ministerio de Transporte). ' +
     'Devuelve "certificado" si es documento vehicular: ' +
     '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
     'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
@@ -456,12 +504,20 @@ const SCHEMAS = {
       apellido: { type: Type.STRING, description: 'Primer apellido del titular' },
       identificacion: {
         type: Type.STRING,
-        description: 'Numero de cedula, solo digitos sin V- ni puntos',
+        description:
+          'Numero de documento, solo digitos sin prefijo ni puntos. ' +
+          'Venezuela: sin V-/E-. Colombia: campo NUMERO (ej. 1007028627).',
       },
       tipoDoc: {
         type: Type.STRING,
         enum: ['V', 'E', 'P'],
-        description: 'V=venezolano, E=extranjero, P=pasaporte',
+        description:
+          'V=venezolano, E=extranjero/colombiano (C.C. Colombia), P=pasaporte',
+      },
+      paisEmisor: {
+        type: Type.STRING,
+        enum: ['VE', 'CO'],
+        description: 'VE=Venezuela, CO=Colombia (Cedula de Ciudadania)',
       },
       fechaNacimiento: {
         type: Type.STRING,
@@ -506,12 +562,13 @@ const SCHEMAS = {
       documentoTipo: DOC_TYPE_PROP,
       tipoCarnet: {
         type: Type.STRING,
-        enum: ['nacional', 'binacional'],
+        enum: ['nacional', 'binacional', 'extranjero'],
         description:
           'Variante del documento vehicular. "nacional" = Venezuela INTT ' +
           '(CERTIFICADO DE CIRCULACION / TITULO DE PROPIEDAD). ' +
-          '"binacional" = Colombia Ministerio de Transporte ' +
-          '(LICENCIA DE TRANSITO / TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE).',
+          '"extranjero" = Colombia Ministerio de Transporte ' +
+          '(LICENCIA DE TRANSITO / TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE) — placa extranjera. ' +
+          '"binacional" = vehiculo venezolano con permiso binacional hacia Colombia (NO es documento colombiano).',
       },
       placa: {
         type: Type.STRING,
@@ -521,7 +578,7 @@ const SCHEMAS = {
       linea: {
         type: Type.STRING,
         description:
-          'Solo Colombia binacional: valor del campo LINEA / LINEA (ej. X5000, T800, 320I, LUV). ' +
+          'Solo Colombia extranjero: valor del campo LINEA / LINEA (ej. X5000, T800, 320I, LUV). ' +
           'En documentos venezolanos deja null.',
       },
       modelo: {
@@ -606,8 +663,10 @@ const SCHEMAS = {
 
 const VALIDATION_PREAMBLE =
   'PASO 1 (OBLIGATORIO): Identifica el HEADER del documento y devuelve documentoTipo: ' +
-  '"cedula" si ves "CEDULA DE IDENTIDAD" sobre tricolor venezolano; ' +
-  '"licencia" si ves "Licencia para Conducir" del INTT venezolano; ' +
+  '"cedula" si ves documento de identidad personal: ' +
+  '"CEDULA DE IDENTIDAD" (Venezuela) O "CEDULA DE CIUDADANIA" / "REPUBLICA DE COLOMBIA"; ' +
+  '"licencia" si ves licencia de conducir: ' +
+  '"Licencia para Conducir" (INTT Venezuela) O "Licencia de Conduccion" (Colombia); ' +
   '"certificado" si ves documento de vehiculo: ' +
   '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
   'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
@@ -621,22 +680,31 @@ const VALIDATION_PREAMBLE =
 const PROMPTS = {
   cedula:
     VALIDATION_PREAMBLE +
-    'Tipo solicitado: CEDULA DE IDENTIDAD VENEZOLANA. ' +
-    'Si la persona aparece como "VENEZOLANO" usa tipoDoc="V"; si dice "EXTRANJERO" usa "E". ' +
+    'Tipo solicitado: DOCUMENTO DE IDENTIDAD PERSONAL (Venezuela o Colombia — flujo RCV extranjero). ' +
+    '=== Venezuela === ' +
+    'Header "CEDULA DE IDENTIDAD". tipoDoc="V" si VENEZOLANO, "E" si EXTRANJERO. ' +
+    '=== Colombia === ' +
+    'Header "REPUBLICA DE COLOMBIA" + "CEDULA DE CIUDADANIA". paisEmisor="CO", tipoDoc="E". ' +
+    'apellido = campo APELLIDOS; nombre = campo NOMBRES; identificacion = NUMERO (solo digitos). ' +
+    'fechaNacimiento si aparece (DD-MM-YYYY o similar → YYYY-MM-DD). ' +
     'El campo identificacion debe contener solo digitos. ' +
-    'Para estadoCivil: la cedula muestra una letra (S, C, D, V); ' +
-    'mapea S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)".',
+    'Para estadoCivil venezolano: S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)".',
   licencia:
     VALIDATION_PREAMBLE +
-    'Tipo solicitado: LICENCIA DE CONDUCIR VENEZOLANA (INTT). ' +
+    'Tipo solicitado: LICENCIA DE CONDUCIR (Venezuela INTT o Colombia — flujo RCV extranjero). ' +
+    '=== Venezuela === "Licencia para Conducir" INTT. ' +
+    '=== Colombia === "Licencia de Conduccion" Republica de Colombia / Ministerio de Transporte. ' +
+    'numeroLicencia = numero del documento (campo No.). ' +
     'Pon especial atencion a la fecha de vencimiento y al grado o categoria.',
   certificado:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: DOCUMENTO VEHICULAR (carnet de circulacion). ' +
     'Detecta la variante en tipoCarnet: ' +
     '"nacional" si es Venezuela INTT (CERTIFICADO DE CIRCULACION / TITULO DE PROPIEDAD); ' +
-    '"binacional" si es Colombia (LICENCIA DE TRANSITO o TARJETA DE REGISTRO DE REMOLQUE/SEMIRREMOLQUE ' +
-    'del Ministerio de Transporte / Republica de Colombia). ' +
+    '"extranjero" si es Colombia (LICENCIA DE TRANSITO o TARJETA DE REGISTRO DE REMOLQUE/SEMIRREMOLQUE ' +
+    'del Ministerio de Transporte / Republica de Colombia — placa extranjera). ' +
+    '"binacional" SOLO si es carnet venezolano INTT con indicacion explicita de permiso binacional ' +
+    '(vehiculo venezolano hacia Colombia; NO uses binacional para documentos colombianos). ' +
     'La placa debe ir sin espacios ni guiones. ' +
     '=== SI tipoCarnet=nacional (Venezuela) === ' +
     'ANO: esquina INFERIOR DERECHA AAAA/AAAA; solo el primer ano. ' +
@@ -646,7 +714,7 @@ const PROMPTS = {
     'propietario = nombre del titular si aparece en el documento. ' +
     'identificacionPropietario = C.I. / cédula del titular (solo digitos). ' +
     'tipoDocPropietario = V, E o J segun el prefijo del documento. ' +
-    '=== SI tipoCarnet=binacional (Colombia) === ' +
+    '=== SI tipoCarnet=extranjero (Colombia — placa extranjera) === ' +
     'PLACA = campo PLACA / No. DE PLACA. ' +
     'linea = campo LINEA (equivale al modelo comercial: X5000, T800, 320I…). ' +
     'anio = campo MODELO (en Colombia MODELO es el ANO en 4 digitos, ej. 2023). ' +
@@ -667,7 +735,7 @@ const PROMPTS = {
 
 const SYSTEM_INSTRUCTION =
   'Eres un extractor OCR estricto de documentos oficiales de vehiculos e identidad ' +
-  '(Venezuela y Colombia para carnets vehiculares). ' +
+  '(Venezuela y Colombia: carnets vehiculares, cedulas de ciudadania, licencias de conduccion). ' +
   'SIEMPRE empiezas verificando el header del documento (titulo y emisor) ' +
   'para determinar `documentoTipo`. Devuelve EXCLUSIVAMENTE un JSON con ' +
   'los campos pedidos. Si un campo no es legible o no aparece, usa null. ' +
@@ -723,6 +791,9 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
       }
       if (docType === 'cedula' && parsed) {
         normalizeCedulaFields(parsed);
+      }
+      if (docType === 'licencia' && parsed) {
+        normalizeLicenciaFields(parsed);
       }
 
       return { fields: parsed, elapsedMs, attempt: attempt + 1 };

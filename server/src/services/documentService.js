@@ -21,6 +21,29 @@ const DOC_TYPE_LABELS = {
 };
 
 /**
+ * Acepta documentos colombianos en slots cedula/licencia (RCV extranjero)
+ * cuando Gemini devuelve desconocido pero extrajo campos utiles.
+ */
+function docTypeMatchesSlot(expected, detected, fields) {
+  if (!detected || detected === expected) return true;
+  if (detected !== 'desconocido') return false;
+  if (!fields || typeof fields !== 'object') return false;
+
+  if (expected === 'cedula') {
+    const digits = String(fields.identificacion ?? '').replace(/\D/g, '');
+    const hasName = Boolean(fields.nombre || fields.apellido);
+    return digits.length >= 6 && hasName;
+  }
+
+  if (expected === 'licencia') {
+    const num = String(fields.numeroLicencia ?? '').trim();
+    return num.length >= 5;
+  }
+
+  return false;
+}
+
+/**
  * Validacion basica del archivo (tamano y mime).
  */
 function validateDocument(file, _docType) {
@@ -118,7 +141,7 @@ async function runOcr(file, docType) {
 
       // Validacion: el header del documento debe coincidir con el slot solicitado.
       const detected = result.fields && result.fields.documentoTipo;
-      if (detected && detected !== docType) {
+      if (detected && !docTypeMatchesSlot(docType, detected, result.fields)) {
         const expectedLabel = DOC_TYPE_LABELS[docType] || docType;
         const detectedLabel = DOC_TYPE_LABELS[detected] || detected;
         console.warn(

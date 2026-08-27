@@ -16,6 +16,7 @@ import {
 import {
   adjustDocsForBinacionalCarnet,
   isBinacionalCarnet,
+  isExtranjeroCarnet,
   resolveTipoPlacaFromCert,
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
@@ -268,11 +269,15 @@ function UploadDocCard({
       }
 
       if (config.type === 'certificado') {
+        const certOcr = result.ocr as Parameters<typeof isBinacionalCarnet>[0];
         const binacional =
-          Boolean(result.carnetBinacional) || isBinacionalCarnet(result.ocr as Parameters<typeof isBinacionalCarnet>[0]);
+          Boolean(result.carnetBinacional) || isBinacionalCarnet(certOcr);
+        const extranjero = isExtranjeroCarnet(certOcr);
         setCarnetBinacionalMode(binacional);
         if (binacional) {
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
+        } else if (extranjero) {
+          setVehicle({ tipoPlaca: 'extranjera', tipoCarnet: 'extranjero' });
         }
         const tomadorFromCert = extractTomadorFromCertificado(result.ocr);
         const cedulaId = useWizardStore.getState().documents.cedula?.ocr?.identificacion;
