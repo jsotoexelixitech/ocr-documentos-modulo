@@ -545,6 +545,7 @@ export function OcrStep() {
   const {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
+    titularFromCarnet, asegurado,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -806,85 +807,122 @@ export function OcrStep() {
       </div>
 
       {/* OCR success banner */}
-      {allRequiredDone && (
-        <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">
-          {/* Decorative bg */}
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-fuchsia-300/15 blur-3xl pointer-events-none" />
+      {allRequiredDone && (() => {
+        // ── Datos tomador (cédula/licencia) ──────────────────────────────────
+        const fromCert = hasVehicle
+          ? extractTomadorFromCertificado(documents.certificado?.ocr)
+          : null;
+        const nombre = documents.cedula.ocr?.nombre || tomador.nombre || fromCert?.nombre || '';
+        const apellido = documents.cedula.ocr?.apellido || tomador.apellido || fromCert?.apellido || '';
+        const rawId = documents.cedula.ocr?.identificacion || tomador.identificacion || fromCert?.identificacion;
+        const identificacion = normalizeIdentificacionDigits(rawId);
+        const tipoDoc =
+          documents.cedula.ocr?.tipoDoc
+          || tomador.tipoDoc
+          || fromCert?.tipoDoc
+          || inferTipoDocFromRaw(rawId)
+          || (identificacion ? 'V' : '');
+        const documento = formatDocumentoLabel(identificacion, tipoDoc);
+        const placa = documents.certificado?.ocr?.placa ?? '';
 
-          <div className="relative p-5">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md grid place-items-center flex-shrink-0 ring-1 ring-white/20">
-                <Sparkles size={18} className="text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-display font-black text-base flex items-center gap-2">
-                  Datos detectados automáticamente
-                  <span className="text-[0.6rem] font-bold bg-white/20 backdrop-blur px-2 py-0.5 rounded-full tracking-wider">
-                    OCR · IA
+        // ── Datos propietario del carnet (si hay discrepancia) ───────────────
+        const docCarnet = asegurado.identificacion
+          ? formatDocumentoLabel(asegurado.identificacion, asegurado.tipoDoc ?? 'V')
+          : '';
+
+        // ── Chip genérico ────────────────────────────────────────────────────
+        const Chip = ({
+          label, value, color = 'white',
+        }: { label: string; value?: string; color?: 'white' | 'amber' }) => value ? (
+          <div className={
+            `rounded-xl p-3 border animate-fade-in ${
+              color === 'amber'
+                ? 'bg-amber-400/20 border-amber-300/30'
+                : 'bg-white/12 backdrop-blur-sm border-white/15'
+            }`
+          }>
+            <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
+            <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
+          </div>
+        ) : null;
+
+        return (
+          <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">
+            {/* Decorative bg */}
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-fuchsia-300/15 blur-3xl pointer-events-none" />
+
+            <div className="relative p-5">
+              {/* Header */}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md grid place-items-center flex-shrink-0 ring-1 ring-white/20">
+                  <Sparkles size={18} className="text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display font-black text-base flex items-center gap-2">
+                    Datos detectados automáticamente
+                    <span className="text-[0.6rem] font-bold bg-white/20 backdrop-blur px-2 py-0.5 rounded-full tracking-wider">
+                      OCR · IA
+                    </span>
+                  </p>
+                  <p className="text-xs text-indigo-100 mt-0.5 leading-relaxed">
+                    {titularFromCarnet
+                      ? 'El carnet del vehículo pertenece a una persona distinta. Se separan tomador y titular.'
+                      : 'Hemos precargado la información en el siguiente paso. Podrás revisarla y editarla si es necesario.'}
+                  </p>
+                </div>
+                {titularFromCarnet && (
+                  <span className="flex-shrink-0 text-[0.6rem] font-bold bg-amber-400/80 text-amber-950 px-2 py-1 rounded-full tracking-wider">
+                    2 personas
                   </span>
-                </p>
-                <p className="text-xs text-indigo-100 mt-0.5 leading-relaxed">
-                  Hemos precargado la información en el siguiente paso. Podrás revisarla y editarla si es necesario.
-                </p>
+                )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(() => {
-                // Cédula opcional en carnet binacional: datos vienen del certificado → tomador.
-                const fromCert = hasVehicle
-                  ? extractTomadorFromCertificado(documents.certificado?.ocr)
-                  : null;
-                const nombre =
-                  documents.cedula.ocr?.nombre
-                  || tomador.nombre
-                  || fromCert?.nombre
-                  || '';
-                const apellido =
-                  documents.cedula.ocr?.apellido
-                  || tomador.apellido
-                  || fromCert?.apellido
-                  || '';
-                const identificacion = normalizeIdentificacionDigits(
-                  documents.cedula.ocr?.identificacion
-                  || tomador.identificacion
-                  || fromCert?.identificacion,
-                );
-                const tipoDoc =
-                  documents.cedula.ocr?.tipoDoc
-                  || tomador.tipoDoc
-                  || fromCert?.tipoDoc
-                  || inferTipoDocFromRaw(documents.cedula.ocr?.identificacion)
-                  || (identificacion ? 'V' : '');
-                const documento = formatDocumentoLabel(identificacion, tipoDoc);
-
-                return [
-                  { label: 'Nombre', value: nombre },
-                  { label: 'Apellido', value: apellido },
-                  { label: 'Documento', value: documento },
-                  hasVehicle
-                    ? { label: 'Placa', value: documents.certificado.ocr?.placa }
-                    : { label: 'Fecha nac.', value: documents.cedula.ocr?.fechaNacimiento },
-                ];
-              })().map(({ label, value }, idx) =>
-                value ? (
-                  <div
-                    key={label}
-                    className="bg-white/12 backdrop-blur-sm rounded-xl p-3 border border-white/15 animate-fade-in"
-                    style={{ animationDelay: `${idx * 80}ms` }}
-                  >
-                    <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">
-                      {label}
+              {titularFromCarnet ? (
+                /* ── Dos columnas: Tomador | Propietario carnet ── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Tomador */}
+                  <div className="rounded-xl bg-white/10 border border-white/20 p-3">
+                    <p className="text-[0.65rem] font-black uppercase tracking-widest text-indigo-200 mb-2.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 inline-block" />
+                      Tomador · Cédula / Licencia
                     </p>
-                    <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Chip label="Nombre" value={nombre} />
+                      <Chip label="Apellido" value={apellido} />
+                      <Chip label="Documento" value={documento} />
+                      {hasVehicle && <Chip label="Placa" value={placa} />}
+                    </div>
                   </div>
-                ) : null
+                  {/* Propietario carnet */}
+                  <div className="rounded-xl bg-amber-400/15 border border-amber-300/25 p-3">
+                    <p className="text-[0.65rem] font-black uppercase tracking-widest text-amber-200 mb-2.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-300 inline-block" />
+                      Titular · Propietario del carnet
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Chip label="Nombre" value={asegurado.nombre || '—'} color="amber" />
+                      <Chip label="Apellido" value={asegurado.apellido || 'Completar'} color="amber" />
+                      <Chip label="Documento" value={docCarnet || '—'} color="amber" />
+                      {hasVehicle && <Chip label="Placa" value={placa} color="amber" />}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ── Una fila: flujo normal ── */
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Chip label="Nombre" value={nombre} />
+                  <Chip label="Apellido" value={apellido} />
+                  <Chip label="Documento" value={documento} />
+                  {hasVehicle
+                    ? <Chip label="Placa" value={placa} />
+                    : <Chip label="Fecha nac." value={documents.cedula.ocr?.fechaNacimiento} />}
+                </div>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Preview modal */}
       <DocumentPreviewModal
