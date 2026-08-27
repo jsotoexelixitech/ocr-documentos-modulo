@@ -278,7 +278,12 @@ function UploadDocCard({
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
         } else if (extranjero) {
           setVehicle({ tipoPlaca: 'extranjera' });
+        } else {
+          // ← CRÍTICO: fijar explícitamente 'nacional' para sobreescribir cualquier
+          // valor previo almacenado en sesión Nexus (ej. 'extranjera' de un intento anterior).
+          setVehicle({ tipoPlaca: 'nacional', tipoCarnet: certOcr?.tipoCarnet as 'nacional' | 'binacional' | undefined ?? 'nacional' });
         }
+
         const tomadorFromCert = extractTomadorFromCertificado(result.ocr);
         const cedulaId = useWizardStore.getState().documents.cedula?.ocr?.identificacion;
         if (tomadorFromCert?.identificacion && !cedulaId) {
