@@ -171,7 +171,7 @@ function normalizeCedulaFields(fields) {
   const digits = normalizeIdentificacionDigits(raw);
   if (digits) fields.identificacion = digits;
   if (!fields.tipoDoc && raw) {
-    const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]?/);
+    const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]*\d/);
     if (m) fields.tipoDoc = m[1] === 'P' ? 'P' : m[1];
   }
   if (isColombianIdentityDoc(fields)) {
@@ -199,14 +199,23 @@ function normalizeLicenciaFields(fields) {
   return fields;
 }
 
-function mapOwnerFromCarnet(fields, mapDocType) {
+function mapOwnerFromCarnet(fields, mapDocType, order = 'apellido_first') {
   const ownerRaw = fields.propietario || fields.propietarioCompleto;
   if (ownerRaw && !isNullishOcrValue(ownerRaw)) {
     const parts = String(ownerRaw).trim().split(/\s+/).filter(Boolean);
     if (parts.length >= 2) {
       const mid = Math.floor(parts.length / 2);
-      fields.propietarioApellido = parts.slice(0, mid).join(' ');
-      fields.propietarioNombre = parts.slice(mid).join(' ');
+      const firstHalf = parts.slice(0, mid).join(' ');
+      const secondHalf = parts.slice(mid).join(' ');
+      
+      if (order === 'nombre_first') {
+        fields.propietarioNombre = firstHalf;
+        fields.propietarioApellido = secondHalf;
+      } else {
+        fields.propietarioApellido = firstHalf;
+        fields.propietarioNombre = secondHalf;
+      }
+      
       fields.apellido = fields.propietarioApellido;
       fields.nombre = fields.propietarioNombre;
     } else if (parts.length === 1) {
@@ -259,7 +268,7 @@ function mapPropietarioFromBinacionalCarnet(fields) {
 }
 
 function mapPropietarioFromNacionalCarnet(fields) {
-  mapOwnerFromCarnet(fields, mapVenezuelanOwnerDocType);
+  mapOwnerFromCarnet(fields, mapVenezuelanOwnerDocType, 'nombre_first');
 }
 
 /** Documento colombiano (Licencia de Tránsito) → placa extranjera, no binacional. */

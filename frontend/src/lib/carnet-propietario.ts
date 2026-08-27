@@ -13,15 +13,19 @@ type CertTomadorOcr = {
   tipoDocPropietario?: string;
 };
 
-export function splitColombianOwnerName(full: string): { nombre: string; apellido: string } {
+export function splitOwnerName(full: string, order: 'nombre_first' | 'apellido_first' = 'nombre_first'): { nombre: string; apellido: string } {
   const parts = full.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { nombre: '', apellido: '' };
   if (parts.length === 1) return { nombre: '', apellido: parts[0] };
   const mid = Math.floor(parts.length / 2);
-  return {
-    apellido: parts.slice(0, mid).join(' '),
-    nombre: parts.slice(mid).join(' '),
-  };
+  const firstHalf = parts.slice(0, mid).join(' ');
+  const secondHalf = parts.slice(mid).join(' ');
+  
+  if (order === 'nombre_first') {
+    return { nombre: firstHalf, apellido: secondHalf };
+  } else {
+    return { apellido: firstHalf, nombre: secondHalf };
+  }
 }
 
 export function extractTomadorFromCertificado(cert?: CertTomadorOcr | null): {
@@ -36,7 +40,8 @@ export function extractTomadorFromCertificado(cert?: CertTomadorOcr | null): {
   let apellido = cert.apellido || cert.propietarioApellido || '';
 
   if (!nombre && !apellido && cert.propietario) {
-    const split = splitColombianOwnerName(cert.propietario);
+    const isColombian = cert.tipoDocPropietario?.toUpperCase().includes('CC') || cert.tipoDocPropietario?.toUpperCase().includes('CE');
+    const split = splitOwnerName(cert.propietario, isColombian ? 'apellido_first' : 'nombre_first');
     apellido = split.apellido;
     nombre = split.nombre;
   }

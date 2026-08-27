@@ -5,10 +5,10 @@ export function normalizeIdentificacionDigits(raw?: string | null): string {
 
 /** Inferir V/E/J/P desde prefijo en texto OCR (ej. "V-12.345.678"). */
 export function inferTipoDocFromRaw(raw?: string | null): string | null {
-  const m = String(raw ?? '').trim().toUpperCase().match(/^([VEJGP])[-\s.]?/);
+  const m = String(raw ?? '').trim().toUpperCase().match(/^([VEJGP])[-\s.]*\d/);
   if (!m) return null;
   const t = m[1];
-  if (t === 'G') return 'J';
+  if (t === 'G') return 'J'; // Backend lo trata como J
   return t;
 }
 
