@@ -138,9 +138,11 @@ function mapColombianOwnerDocType(raw) {
 }
 
 function mapVenezuelanOwnerDocType(raw) {
-  const u = String(raw || '').toUpperCase().replace(/\./g, '').trim();
-  if (u.includes('NIT') || u === 'J') return 'J';
-  if (u.includes('E') || u.includes('EXTRANJ')) return 'E';
+  const u = String(raw || '').toUpperCase().replace(/[\s\.\-]/g, '').trim();
+  if (u === 'J' || u === 'NIT' || u.includes('NIT')) return 'J';
+  // Solo E exacto, CE (cédula extranjer) o EXTRANJERO — NO includes('E') porque atrapa 'VENEZOLANO'
+  if (u === 'E' || u === 'CE' || u === 'EXTRANJ' || u === 'EXTRANJERO') return 'E';
+  // V, CI, VI, V-I, venezolano → venezolano
   return 'V';
 }
 
@@ -173,15 +175,26 @@ function normalizeCedulaFields(fields) {
   const raw = fields.identificacion ?? fields.cedula ?? fields.numeroDocumento ?? fields.numero;
   const digits = normalizeIdentificacionDigits(raw);
   if (digits) fields.identificacion = digits;
-  if (!fields.tipoDoc && raw) {
-    const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]*\d/);
-    if (m) fields.tipoDoc = m[1] === 'P' ? 'P' : m[1];
-  }
-  if (isColombianIdentityDoc(fields)) {
+
+  // Detectar si es documento colombiano ANTES de normalizar tipoDoc
+  const esColombia = isColombianIdentityDoc(fields);
+
+  if (esColombia) {
+    // Documento colombiano → siempre E (extranjero en el sistema VE)
     fields.tipoDoc = 'E';
     fields.paisEmisor = 'CO';
-  } else if (!fields.tipoDoc && digits) {
-    fields.tipoDoc = 'V';
+  } else {
+    // Documento venezolano (o desconocido): respetar lo que Gemini detectó.
+    // Solo intentar inferir del prefijo raw si Gemini no puso nada.
+    if (!fields.tipoDoc && raw) {
+      const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]*\d/);
+      if (m) fields.tipoDoc = m[1] === 'P' ? 'P' : m[1];
+    }
+    // Si Gemini puso 'E' pero NO es Colombia → el usuario es extranjero residente en VE (válido),
+    // lo dejamos como E. Si no hay tipoDoc y hay dígitos → V por defecto.
+    if (!fields.tipoDoc && digits) {
+      fields.tipoDoc = 'V';
+    }
   }
   delete fields.paisDocumento;
   delete fields.documentoEmisor;

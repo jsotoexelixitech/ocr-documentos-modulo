@@ -25,7 +25,10 @@ function sanitizeOcrString(value?: string | null): string {
 function looksLikeCoPlaca(placa?: string | null): boolean {
   const p = String(placa ?? '').replace(/[\s-]/g, '').toUpperCase();
   if (!p) return false;
-  return /^[A-Z]{3}\d{2,3}[A-Z]?$/.test(p);
+  // Colombia: AAA000 o AAA00A (letra al final obligatoria en formato moderno)
+  // Venezuela antigua: AB123 (2 letras + 3 digitos) o AC124KB (2+3+2 nuevo)
+  // Para evitar falsos positivos con VE viejas (ABC-123) exigimos letra al final.
+  return /^[A-Z]{3}\d{2,3}[A-Z]$/.test(p);
 }
 
 /**
@@ -37,6 +40,11 @@ export function isExtranjeroCarnet(cert?: CertOcr | null): boolean {
 
   const tipoRaw = String(cert.tipoCarnet || cert.tipo_carnet || '').toLowerCase().trim();
   const placaTipo = String(cert.tipoPlaca || '').toLowerCase().trim();
+
+  // Si el servidor ya lo clasificó explícitamente, confiamos en eso.
+  if (tipoRaw === 'nacional' || placaTipo === 'nacional') return false;
+  if (tipoRaw === 'binacional' || placaTipo === 'binacional') return false;
+
   if (tipoRaw === 'extranjero') return true;
   if (placaTipo === 'extranjera') return true;
 
