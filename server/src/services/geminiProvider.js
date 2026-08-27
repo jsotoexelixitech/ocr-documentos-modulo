@@ -153,7 +153,9 @@ function isColombianIdentityDoc(fields) {
   const pais = String(fields.paisEmisor || fields.paisDocumento || '').toUpperCase();
   if (pais === 'CO' || pais.includes('COLOMB')) return true;
   const tipo = String(fields.tipoDoc || '').toUpperCase();
-  if (tipo === 'E' || tipo === 'CC' || tipo === 'CE') return true;
+  if (tipo === 'CC') return true;
+  // NO usamos tipo === 'E' porque en VE eso significa Extranjero residente, no colombiano.
+  
   const hint = [
     fields.documentoEmisor,
     fields.tituloDocumento,
@@ -162,7 +164,8 @@ function isColombianIdentityDoc(fields) {
     .filter(Boolean)
     .join(' ')
     .toUpperCase();
-  return hint.includes('COLOMB') || hint.includes('CIUDADAN');
+  // "CIUDADANÍA" es de Colombia. "CIUDADANO" es de Venezuela ("identifica al ciudadano").
+  return hint.includes('COLOMB') || hint.includes('CIUDADANÍA') || hint.includes('CIUDADANIA');
 }
 
 function normalizeCedulaFields(fields) {
@@ -275,6 +278,7 @@ function mapPropietarioFromNacionalCarnet(fields) {
 function isExtranjeroCarnetColombia(fields, tipoRaw, placaNorm, hasLinea) {
   if (tipoRaw === 'extranjero') return true;
   if (tipoRaw === 'colombia' || tipoRaw === 'colombiano') return true;
+  if (tipoRaw === 'nacional' || tipoRaw === 'binacional') return false; // Gemini ya lo clasificó
   if (looksLikeCoPlaca(placaNorm)) return true;
   return Boolean(
     hasLinea
