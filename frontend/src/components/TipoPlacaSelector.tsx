@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import { Globe2, Lock, MapPin, Flag } from 'lucide-react';
+
 import { cn } from '../lib/utils';
 import { ocrIndicaPlacaExtranjera } from '../lib/placa-tipo';
 import type { VehicleData } from '../types';
@@ -41,16 +41,10 @@ export function TipoPlacaSelector({
     ? ALL_OPTIONS
     : ALL_OPTIONS.filter((o) => o.id !== 'binacional');
 
-  useEffect(() => {
-    if (disabled) return;
-    if (forceExtranjera && value !== 'extranjera') {
-      onChange('extranjera');
-      return;
-    }
-    if (!forceExtranjera && value === 'extranjera') {
-      onChange('nacional');
-    }
-  }, [forceExtranjera, value, onChange, disabled]);
+  // forceExtranjera: si el OCR detecta placa/carnet colombiano, bloqueamos la opción nacional.
+  // NO auto-cambiamos el store aquí: OcrStep ya fijó tipoPlaca al procesar el certificado.
+  // Solo bloqueamos la UI para evitar selección manual incorrecta.
+
 
   return (
     <div className="col-span-full">
