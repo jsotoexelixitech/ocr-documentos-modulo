@@ -671,6 +671,39 @@ export function OcrStep() {
           tipoCarnet: cert.tipoCarnet,
           tipoPlaca: resolveTipoPlacaFromCert(cert),
         });
+
+        // ── Detectar discrepancia: cédula ≠ propietario del carnet ────────────
+        // Si la cédula/licencia tiene identificación Y el carnet también,
+        // y son diferentes → titular del vehículo es una persona distinta al tomador.
+        const cedulaId = normalizeIdentificacionDigits(cedula?.identificacion);
+        const carnetId = normalizeIdentificacionDigits(
+          cert.identificacion
+          || cert.identificacionPropietario
+          || cert.propietarioIdentificacion,
+        );
+
+        const hayDiscrepancia =
+          !!cedulaId && !!carnetId && cedulaId !== carnetId;
+
+        if (hayDiscrepancia) {
+          // Titular del carnet: solo cédula + nombre (lo que trae el certificado).
+          // Los campos faltantes quedarán vacíos para que el usuario los complete.
+          const titularCarnet = extractTomadorFromCertificado(cert);
+          useWizardStore.getState().setAsegurado({
+            identificacion: titularCarnet?.identificacion ?? carnetId,
+            tipoDoc: titularCarnet?.tipoDoc ?? 'V',
+            nombre: titularCarnet?.nombre ?? '',
+            apellido: titularCarnet?.apellido ?? '',
+            // Los demás campos (fechaNac, telefono, email…) quedan vacíos para llenar manualmente.
+            fechaNac: '',
+          });
+          useWizardStore.getState().setSameInsured(false);
+          useWizardStore.getState().setTitularFromCarnet(true);
+        } else {
+          // Misma persona o carnet sin identificación → flujo normal.
+          useWizardStore.getState().setSameInsured(true);
+          useWizardStore.getState().setTitularFromCarnet(false);
+        }
       }
       setOcrDone(true);
     }
@@ -686,6 +719,7 @@ export function OcrStep() {
     setVehicle,
     setOcrDone,
   ]);
+
 
   // Re-sincronización tardía: si los catálogos llegan DESPUÉS de aplicar el OCR
   // normaliza los valores del tomador contra las opciones reales del Valrep.

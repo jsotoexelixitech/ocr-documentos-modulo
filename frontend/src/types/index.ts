@@ -214,4 +214,12 @@ export interface WizardState {
   carnetBinacionalMode: boolean;
   /** Circular SAA-02-1079-2026 — clasificación DDS/DDC y docs requeridos. */
   diligencia: import('../lib/diligencia').DiligenciaState | null;
+  /**
+   * true cuando la cédula/licencia y el carnet del vehículo pertenecen a personas
+   * distintas (detectado en OcrStep). En ese caso:
+   *   - tomador = datos de la cédula/licencia
+   *   - asegurado (titular de la póliza) = datos del carnet (precargados, editables)
+   *   - sameInsured = false
+   */
+  titularFromCarnet: boolean;
 }

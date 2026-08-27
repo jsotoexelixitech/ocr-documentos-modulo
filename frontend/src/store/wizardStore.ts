@@ -89,6 +89,8 @@ interface WizardActions {
   setBuilderProduct: (product: BuilderCatalogProduct | null) => void;
   setCarnetBinacionalMode: (v: boolean) => void;
   setDiligencia: (data: Partial<DiligenciaState> | null) => void;
+  /** Marca que el titular de la póliza fue detectado por discrepancia OCR cédula vs carnet. */
+  setTitularFromCarnet: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -127,6 +129,7 @@ const initialState: WizardState = {
   metadataCanal: null,
   carnetBinacionalMode: false,
   diligencia: buildDiligenciaState({ itipoDiligencia: 'S', clasificadoEn: 'ocr' }),
+  titularFromCarnet: false,
 };
 
 export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
@@ -215,6 +218,8 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
   setBuilderProduct: (builderProduct) => set({ builderProduct }),
 
   setCarnetBinacionalMode: (carnetBinacionalMode) => set({ carnetBinacionalMode }),
+
+  setTitularFromCarnet: (titularFromCarnet) => set({ titularFromCarnet }),
 
   setDiligencia: (data) =>
     set((s) => {
