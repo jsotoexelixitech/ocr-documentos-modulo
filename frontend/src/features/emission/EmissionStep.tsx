@@ -182,8 +182,8 @@ export function EmissionStep() {
       e.direccion = 'La dirección no puede superar 200 caracteres';
     }
 
-    // ── Asegurado (solo si está habilitado) ───────────────────────────────
-    if (!sameInsured) {
+    // ── Titular de la póliza (solo si carnet detectó persona distinta) ─────
+    if (titularFromCarnet) {
       if (req(asegurado.nombre))         e.aseg_nombre         = 'El nombre es obligatorio';
       if (req(asegurado.apellido))       e.aseg_apellido       = 'El apellido es obligatorio';
       if (req(asegurado.identificacion)) e.aseg_identificacion = 'La identificación es obligatoria';
