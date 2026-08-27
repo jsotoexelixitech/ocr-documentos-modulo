@@ -277,7 +277,7 @@ function UploadDocCard({
         if (binacional) {
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
         } else if (extranjero) {
-          setVehicle({ tipoPlaca: 'extranjera', tipoCarnet: 'extranjero' });
+          setVehicle({ tipoPlaca: 'extranjera' });
         }
         const tomadorFromCert = extractTomadorFromCertificado(result.ocr);
         const cedulaId = useWizardStore.getState().documents.cedula?.ocr?.identificacion;

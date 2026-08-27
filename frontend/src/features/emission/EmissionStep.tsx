@@ -100,7 +100,6 @@ function onlyLetters(v: string): string {
 export function EmissionStep() {
   const {
     tomador, setTomador,
-    sameInsured, setSameInsured,
     asegurado, setAsegurado,
     differentPayer, setDifferentPayer,
     pagador, setPagador,
