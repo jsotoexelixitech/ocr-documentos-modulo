@@ -14,7 +14,9 @@ export function looksLikeVePlacaNacional(placa?: string | null): boolean {
 export function looksLikeCoPlaca(placa?: string | null): boolean {
   const p = normalizePlaca(placa);
   if (!p) return false;
-  return /^[A-Z]{3}\d{2,3}[A-Z]?$/.test(p);
+  // Colombia siempre termina en letra (SLD29E, SLP935).
+  // VE antiguas ABC123 (sin letra al final) NO son colombianas.
+  return /^[A-Z]{3}\d{2,3}[A-Z]$/.test(p);
 }
 
 /** Placa extranjera genérica (no VE ni Colombia). */
@@ -34,10 +36,18 @@ type CertHint = { tipoPlaca?: string; tipoCarnet?: string; placa?: string };
  */
 export function ocrIndicaPlacaExtranjera(cert?: CertHint | null): boolean {
   if (!cert) return false;
-  const ocrTipo = String(cert.tipoPlaca ?? '').toLowerCase().trim();
-  if (ocrTipo === 'extranjera') return true;
+
   const tipoCarnet = String(cert.tipoCarnet ?? '').toLowerCase().trim();
+  const ocrTipo = String(cert.tipoPlaca ?? '').toLowerCase().trim();
+
+  // Si el servidor ya clasificó el documento explícitamente, confiamos en él.
+  // 'nacional' y 'binacional' NO son extranjeros.
+  if (tipoCarnet === 'nacional' || ocrTipo === 'nacional') return false;
+  if (tipoCarnet === 'binacional' || ocrTipo === 'binacional') return false;
+
+  if (ocrTipo === 'extranjera') return true;
   if (tipoCarnet === 'extranjero') return true;
+
   const p = normalizePlaca(cert.placa);
   if (looksLikeCoPlaca(p)) return true;
   if (!p || looksLikeVePlacaNacional(p)) return false;

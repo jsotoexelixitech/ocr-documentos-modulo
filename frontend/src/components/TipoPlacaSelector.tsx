@@ -9,7 +9,7 @@ type TipoPlaca = VehicleData['tipoPlaca'];
 type Props = {
   value: TipoPlaca;
   placa: string;
-  certOcr?: { tipoPlaca?: string; placa?: string } | null;
+  certOcr?: { tipoPlaca?: string; tipoCarnet?: string; placa?: string } | null;
   onChange: (tipo: TipoPlaca) => void;
   /** Ocultar opción binacional (flujos sin RCV La Mundial). */
   showBinacional?: boolean;
