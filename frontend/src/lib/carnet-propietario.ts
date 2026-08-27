@@ -58,7 +58,8 @@ export function extractTomadorFromCertificado(cert?: CertTomadorOcr | null): {
     const u = cert.tipoDocPropietario.toUpperCase();
     if (u.includes('NIT') || u === 'J') tipoDoc = 'J';
     else if (u.includes('CE') || u === 'E') tipoDoc = 'E';
-    else if (u.includes('CC') || u === 'V') tipoDoc = 'E';
+    else if (u.includes('CC')) tipoDoc = 'E';           // Cédula Colombia → extranjero en VE
+    else if (u === 'V' || u.includes('C.I') || u.includes('CI')) tipoDoc = 'V'; // Venezolano
   }
 
   return { nombre, apellido, identificacion, tipoDoc };
