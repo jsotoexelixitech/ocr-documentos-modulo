@@ -44,21 +44,31 @@ const DOC_LABELS: Record<string, string> = {
 
 import { OcrConfigPanel } from './config/OcrConfigPanel';
 
+import { useInIframe } from './hooks/useInIframe';
+
 function MobileOcrContinueBar({
   onContinue,
   canContinue,
   pendingHint,
   hidden,
+  placement = 'bottom-fixed',
 }: {
   onContinue: () => void;
   canContinue: boolean;
   pendingHint?: string;
   hidden?: boolean;
+  /** En iframe (QASys2000) el fixed bottom queda fuera de vista — inline arriba del grid. */
+  placement?: 'bottom-fixed' | 'top-inline';
 }) {
   if (hidden) return null;
 
+  const shellClass =
+    placement === 'top-inline'
+      ? 'md:hidden mb-4 rounded-2xl border border-indigo-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,26,90,0.08)]'
+      : 'md:hidden fixed bottom-0 inset-x-0 z-[60] border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(15,23,42,0.12)]';
+
   return (
-    <div className="md:hidden fixed bottom-0 inset-x-0 z-[60] border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(15,23,42,0.12)]">
+    <div className={shellClass}>
       {!canContinue && pendingHint && (
         <p className="mb-2 text-center text-[0.68rem] font-medium leading-snug text-slate-500">
           {pendingHint}
@@ -89,6 +99,7 @@ export default function App() {
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
   const { hideHeader, hideStepper, hideTrustBanner, hideFooterBar } = useUiFlags(config);
+  const inIframe = useInIframe();
   const showCatalogPicker = builderCatalogMode && !builderProduct;
 
   // Interceptar SSO Delegation (nexus_token + legacy session_token)
@@ -276,6 +287,15 @@ export default function App() {
               </p>
             </header>
           )}
+          {!isSuccess && inIframe && (
+            <MobileOcrContinueBar
+              placement="top-inline"
+              hidden={hideFooterBar}
+              canContinue={canContinueOcr}
+              pendingHint={ocrPendingHint}
+              onContinue={handleContinuar}
+            />
+          )}
           {!isSuccess && <OcrStep />}
           {isSuccess && (
             <div className="flex flex-col items-center justify-center gap-4 py-12">
@@ -292,8 +312,9 @@ export default function App() {
             </div>
           )}
         </ExelixiOcrFlow>
-        {!isSuccess && (
+        {!isSuccess && !inIframe && (
           <MobileOcrContinueBar
+            placement="bottom-fixed"
             hidden={hideFooterBar}
             canContinue={canContinueOcr}
             pendingHint={ocrPendingHint}
@@ -342,7 +363,7 @@ export default function App() {
       )}
 
       <div>
-        <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-12">
+        <main className={`flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 md:pb-12 ${inIframe ? 'pb-8' : 'pb-[calc(8.5rem+env(safe-area-inset-bottom))]'}`}>
           <div className="max-w-5xl mx-auto">
             {!hideStepper && <TopStepper />}
 
@@ -386,6 +407,15 @@ export default function App() {
 
             <section key={step} className="surface-card overflow-hidden step-enter">
               <div className="p-6 sm:p-8 lg:p-10">
+                {!isSuccess && inIframe && (
+                  <MobileOcrContinueBar
+                    placement="top-inline"
+                    hidden={hideFooterBar}
+                    canContinue={canContinueOcr}
+                    pendingHint={ocrPendingHint}
+                    onContinue={handleContinuar}
+                  />
+                )}
                 {!isSuccess && <OcrStep />}
                 {isSuccess && (
                   <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -436,8 +466,9 @@ export default function App() {
         </main>
       </div>
 
-      {!isSuccess && (
+      {!isSuccess && !inIframe && (
         <MobileOcrContinueBar
+          placement="bottom-fixed"
           hidden={hideFooterBar}
           canContinue={canContinueOcr}
           pendingHint={ocrPendingHint}
