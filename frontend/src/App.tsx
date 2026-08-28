@@ -44,6 +44,41 @@ const DOC_LABELS: Record<string, string> = {
 
 import { OcrConfigPanel } from './config/OcrConfigPanel';
 
+function MobileOcrContinueBar({
+  onContinue,
+  canContinue,
+  pendingHint,
+  hidden,
+}: {
+  onContinue: () => void;
+  canContinue: boolean;
+  pendingHint?: string;
+  hidden?: boolean;
+}) {
+  if (hidden) return null;
+
+  return (
+    <div className="md:hidden fixed bottom-0 inset-x-0 z-[60] border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(15,23,42,0.12)]">
+      {!canContinue && pendingHint && (
+        <p className="mb-2 text-center text-[0.68rem] font-medium leading-snug text-slate-500">
+          {pendingHint}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="primary"
+        size="lg"
+        className="w-full min-h-[52px] touch-manipulation btn-shine"
+        onClick={onContinue}
+        disabled={!canContinue}
+      >
+        Continuar
+        <ChevronRight size={16} />
+      </Button>
+    </div>
+  );
+}
+
 export default function App() {
   if (window.location.pathname === '/config') {
     return <OcrConfigPanel />;
@@ -152,6 +187,14 @@ export default function App() {
     );
   }
 
+  const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
+  const canContinueOcr = effectiveRequiredDocs.every((d) => documents[d]?.status === 'done');
+  const pendingDocsHint = effectiveRequiredDocs
+    .filter((d) => documents[d]?.status !== 'done')
+    .map((d) => DOC_LABELS[d] ?? d)
+    .join(', ');
+  const ocrPendingHint = pendingDocsHint ? `Falta procesar: ${pendingDocsHint}` : undefined;
+
   function handleContinuar() {
     const { requiredDocs } = resolveEffectiveOcrDocs();
 
@@ -204,7 +247,12 @@ export default function App() {
                 <p className="text-xs text-slate-500">
                   Producto: <strong>{builderProduct?.commercialName}</strong>
                 </p>
-                <Button variant="primary" onClick={handleContinuar} className="min-w-[180px] btn-shine">
+                <Button
+                  variant="primary"
+                  onClick={handleContinuar}
+                  disabled={!canContinueOcr}
+                  className="min-w-[180px] btn-shine"
+                >
                   Continuar
                   <ChevronRight size={15} />
                 </Button>
@@ -245,12 +293,12 @@ export default function App() {
           )}
         </ExelixiOcrFlow>
         {!isSuccess && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden">
-            <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
-              Continuar
-              <ChevronRight size={15} />
-            </Button>
-          </div>
+          <MobileOcrContinueBar
+            hidden={hideFooterBar}
+            canContinue={canContinueOcr}
+            pendingHint={ocrPendingHint}
+            onContinue={handleContinuar}
+          />
         )}
       </>
     );
@@ -294,7 +342,7 @@ export default function App() {
       )}
 
       <div>
-        <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-32 lg:pb-12">
+        <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-12">
           <div className="max-w-5xl mx-auto">
             {!hideStepper && <TopStepper />}
 
@@ -371,7 +419,12 @@ export default function App() {
                     <ShieldCheck size={13} className="text-emerald-500" />
                     <span className="font-medium">Cifrado de extremo a extremo · TLS 1.3</span>
                   </div>
-                  <Button variant="primary" onClick={handleContinuar} className="min-w-[180px] btn-shine">
+                  <Button
+                    variant="primary"
+                    onClick={handleContinuar}
+                    disabled={!canContinueOcr}
+                    className="min-w-[180px] btn-shine"
+                  >
                     Continuar
                     <ChevronRight size={15} />
                   </Button>
@@ -384,12 +437,12 @@ export default function App() {
       </div>
 
       {!isSuccess && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 py-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-          <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
-            Continuar
-            <ChevronRight size={15} />
-          </Button>
-        </div>
+        <MobileOcrContinueBar
+          hidden={hideFooterBar}
+          canContinue={canContinueOcr}
+          pendingHint={ocrPendingHint}
+          onContinue={handleContinuar}
+        />
       )}
     </div>
   );

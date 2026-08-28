@@ -42,34 +42,93 @@ interface DocConfig {
   accent: string;
 }
 
-function MobileUploadButtons({
+function MobileUploadActions({
   onCamera,
   onGallery,
+  variant = 'idle',
 }: {
   onCamera: () => void;
   onGallery: () => void;
+  variant?: 'idle' | 'error';
 }) {
+  const btnBase =
+    'min-h-[48px] w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold touch-manipulation select-none active:scale-[0.98] transition-transform';
+
   return (
-    <div className="flex sm:hidden gap-2 mt-1">
-      <button
-        data-upload-btn
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onCamera(); }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow active:scale-95 transition-transform"
-      >
-        <Camera size={13} />
-        Cámara
-      </button>
-      <button
-        data-upload-btn
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onGallery(); }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow active:scale-95 transition-transform"
-      >
-        <Images size={13} />
-        Galería
-      </button>
+    <div
+      className="sm:hidden px-4 pb-4 pt-2 border-t border-slate-100/80 bg-white/60"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2.5 w-full">
+        <button
+          data-upload-btn
+          type="button"
+          onClick={onCamera}
+          className={`${btnBase} bg-indigo-600 text-white shadow-[0_8px_20px_rgba(15,26,90,0.28)]`}
+        >
+          <Camera size={18} strokeWidth={2.2} />
+          Tomar foto
+        </button>
+        <button
+          data-upload-btn
+          type="button"
+          onClick={onGallery}
+          className={`${btnBase} bg-white border-2 border-indigo-200 text-indigo-800 shadow-sm`}
+        >
+          <Images size={18} strokeWidth={2.2} />
+          Elegir archivo
+        </button>
+      </div>
+      <p className={`text-center text-[0.65rem] mt-2 leading-relaxed ${variant === 'error' ? 'text-rose-600' : 'text-slate-500'}`}>
+        {variant === 'error'
+          ? 'Selecciona otra imagen o PDF e inténtalo de nuevo.'
+          : 'JPG · PNG · PDF · HEIC'}
+      </p>
     </div>
+  );
+}
+
+/** Inputs ocultos pero activables en iOS / WebView (display:none a veces rompe el picker). */
+function HiddenFileInputs({
+  inputRef,
+  cameraRef,
+  onPick,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  cameraRef: React.RefObject<HTMLInputElement | null>;
+  onPick: (file: File) => void;
+}) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onPick(file);
+    e.target.value = '';
+  };
+
+  const hiddenInputClass =
+    'absolute left-0 top-0 h-px w-px overflow-hidden opacity-0 -z-10';
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,image/heic,image/heif,.pdf"
+        className={hiddenInputClass}
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleChange}
+      />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className={hiddenInputClass}
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleChange}
+      />
+    </>
   );
 }
 
@@ -368,6 +427,9 @@ function UploadDocCard({
     if (file) handleFile(file);
   }
 
+  const openCamera = () => cameraRef.current?.click();
+  const openGallery = () => inputRef.current?.click();
+
   return (
     <div
       role={isClickable ? 'button' : undefined}
@@ -381,10 +443,10 @@ function UploadDocCard({
         ${isDone
           ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-white cursor-default'
           : currentStatus === 'error'
-          ? 'border-rose-300 bg-rose-50/30 cursor-pointer hover:border-rose-400 hover:-translate-y-0.5'
+          ? 'border-rose-300 bg-rose-50/30 sm:cursor-pointer sm:hover:border-rose-400 sm:hover:-translate-y-0.5'
           : isLoading
           ? 'border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 cursor-wait'
-          : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] hover:-translate-y-0.5 cursor-pointer active:scale-[0.99]'
+          : 'border-slate-200 bg-white sm:hover:border-indigo-400 sm:hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] sm:hover:-translate-y-0.5 sm:cursor-pointer sm:active:scale-[0.99]'
         }
       `}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -396,23 +458,7 @@ function UploadDocCard({
         <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br ${config.accent} opacity-[0.08] blur-2xl pointer-events-none`} />
       )}
 
-      {/* Input galería/archivo — acepta imágenes en cualquier formato + PDF */}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*,image/heic,image/heif,.pdf"
-        className="hidden"
-        onChange={(e) => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = ''; } }}
-      />
-      {/* Input cámara — iOS y Android: cámara trasera directamente */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = ''; } }}
-      />
+      <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between p-4 pb-0 relative">
@@ -467,13 +513,11 @@ function UploadDocCard({
               Click o arrastra aquí
             </span>
 
-            {/* Móvil: botones Cámara y Galería */}
-            <MobileUploadButtons
-              onCamera={() => cameraRef.current?.click()}
-              onGallery={() => inputRef.current?.click()}
-            />
+            <span className="sm:hidden text-xs font-semibold text-slate-600 text-center px-2 pointer-events-none">
+              Usa los botones de abajo para subir
+            </span>
 
-            <span className="text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
+            <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
           </div>
         )}
 
@@ -520,14 +564,18 @@ function UploadDocCard({
               <span className="hidden sm:inline">Error · Click para reintentar</span>
               <span className="sm:hidden">Error · Vuelve a intentar</span>
             </p>
-            <p className="text-[0.65rem] text-rose-500 max-w-full truncate px-2 text-center pointer-events-none">{docState.error}</p>
-            <MobileUploadButtons
-              onCamera={() => cameraRef.current?.click()}
-              onGallery={() => inputRef.current?.click()}
-            />
+            <p className="text-[0.65rem] text-rose-500 max-w-full px-2 text-center pointer-events-none break-words leading-snug">{docState.error}</p>
           </div>
         )}
       </div>
+
+      {(currentStatus === 'idle' || currentStatus === 'error') && (
+        <MobileUploadActions
+          variant={currentStatus === 'error' ? 'error' : 'idle'}
+          onCamera={openCamera}
+          onGallery={openGallery}
+        />
+      )}
 
       {/* Action footer (only when done) */}
       {isDone && (
