@@ -20,7 +20,7 @@ import {
   resolveTipoPlacaFromCert,
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
-import { extractPersonFromOcr } from '../../lib/ocr-person';
+import { resolveOcrPersonRoles } from '../../lib/ocr-person-roles';
 import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
@@ -765,60 +765,20 @@ export function OcrStep() {
           tipoPlaca: resolveTipoPlacaFromCert(cert),
         });
 
-        // ── Detectar discrepancia: cédula ≠ propietario del carnet ────────────
-        // Si la cédula/licencia tiene identificación Y el carnet también,
-        // y son diferentes → titular del vehículo es una persona distinta al tomador.
-        const cedulaId = normalizeIdentificacionDigits(cedula?.identificacion);
-        const carnetId = normalizeIdentificacionDigits(
-          cert.identificacion
-          || cert.identificacionPropietario
-          || cert.propietarioIdentificacion,
-        );
-
-        const hayDiscrepancia =
-          !!cedulaId && !!carnetId && cedulaId !== carnetId;
-
-        if (hayDiscrepancia) {
-          // Titular del carnet: solo cédula + nombre (lo que trae el certificado).
-          // Los campos faltantes quedarán vacíos para que el usuario los complete.
-          const titularCarnet = extractTomadorFromCertificado(cert);
-          useWizardStore.getState().setAsegurado({
-            identificacion: titularCarnet?.identificacion ?? carnetId,
-            tipoDoc: titularCarnet?.tipoDoc ?? 'V',
-            nombre: titularCarnet?.nombre ?? '',
-            apellido: titularCarnet?.apellido ?? '',
-            // Los demás campos (fechaNac, telefono, email…) quedan vacíos para llenar manualmente.
-            fechaNac: '',
-          });
-          useWizardStore.getState().setSameInsured(false);
-          useWizardStore.getState().setTitularFromCarnet(true);
-        } else {
-          // Misma persona o carnet sin identificación → flujo normal.
-          useWizardStore.getState().setSameInsured(true);
-          useWizardStore.getState().setTitularFromCarnet(false);
-        }
       }
 
-      // ── Licencia distinta a cédula → conductor habitual ─────────────────────
-      const licenciaOcr = documents.licencia?.ocr;
-      const licenciaId = normalizeIdentificacionDigits(licenciaOcr?.identificacion);
-      const cedulaIdNorm = normalizeIdentificacionDigits(cedula?.identificacion);
-
-      if (licenciaOcr && licenciaId && cedulaIdNorm && licenciaId !== cedulaIdNorm) {
-        const fromLicencia = extractPersonFromOcr(licenciaOcr);
-        if (fromLicencia) {
-          useWizardStore.getState().setHasDriver(true);
-          useWizardStore.getState().setConductor({
-            nombre: fromLicencia.nombre,
-            apellido: fromLicencia.apellido,
-            identificacion: fromLicencia.identificacion,
-            tipoDoc: fromLicencia.tipoDoc,
-            licencia: fromLicencia.licencia ?? '',
-            fechaNac: fromLicencia.fechaNac ?? '',
-          });
+      if (hasVehicle) {
+        // ── Titular carnet + conductor habitual (licencia ≠ cédula y ≠ carnet) ──
+        const personRoles = resolveOcrPersonRoles(cedula, cert, documents.licencia?.ocr);
+        useWizardStore.getState().setSameInsured(personRoles.sameInsured);
+        useWizardStore.getState().setTitularFromCarnet(personRoles.titularFromCarnet);
+        if (personRoles.asegurado) {
+          useWizardStore.getState().setAsegurado(personRoles.asegurado);
         }
-      } else {
-        useWizardStore.getState().setHasDriver(false);
+        useWizardStore.getState().setHasDriver(personRoles.hasDriver);
+        if (personRoles.hasDriver && personRoles.conductor) {
+          useWizardStore.getState().setConductor(personRoles.conductor);
+        }
       }
 
       setOcrDone(true);
