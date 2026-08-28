@@ -217,8 +217,9 @@ export interface WizardState {
   /**
    * true cuando la cédula/licencia y el carnet del vehículo pertenecen a personas
    * distintas (detectado en OcrStep). En ese caso:
-   *   - tomador = datos de la cédula/licencia
+   *   - tomador = datos de la cédula
    *   - asegurado (titular de la póliza) = datos del carnet (precargados, editables)
+   *   - conductor habitual = datos de la licencia cuando cédula ≠ licencia
    *   - sameInsured = false
    */
   titularFromCarnet: boolean;

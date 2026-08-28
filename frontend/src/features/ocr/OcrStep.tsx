@@ -20,6 +20,7 @@ import {
   resolveTipoPlacaFromCert,
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
+import { extractPersonFromOcr } from '../../lib/ocr-person';
 import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
@@ -39,6 +40,37 @@ interface DocConfig {
   Icon: React.ElementType;
   optional?: boolean;
   accent: string;
+}
+
+function MobileUploadButtons({
+  onCamera,
+  onGallery,
+}: {
+  onCamera: () => void;
+  onGallery: () => void;
+}) {
+  return (
+    <div className="flex sm:hidden gap-2 mt-1">
+      <button
+        data-upload-btn
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onCamera(); }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow active:scale-95 transition-transform"
+      >
+        <Camera size={13} />
+        Cámara
+      </button>
+      <button
+        data-upload-btn
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onGallery(); }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow active:scale-95 transition-transform"
+      >
+        <Images size={13} />
+        Galería
+      </button>
+    </div>
+  );
 }
 
 const DOCS: DocConfig[] = [
@@ -261,6 +293,22 @@ function UploadDocCard({
         });
       }
 
+      if (config.type === 'licencia' && result.ocr && typeof result.ocr === 'object') {
+        const rawId = result.ocr.identificacion as string | undefined;
+        const digits = normalizeIdentificacionDigits(rawId);
+        const tipoDoc =
+          (result.ocr.tipoDoc as string | undefined)
+          || inferTipoDocFromRaw(rawId)
+          || (digits ? 'V' : undefined);
+        setDocState(config.type, {
+          ocr: {
+            ...result.ocr,
+            identificacion: digits || undefined,
+            ...(tipoDoc ? { tipoDoc } : {}),
+          },
+        });
+      }
+
       if (config.type === 'cedula' && result.ocr?.tipoDoc) {
         const tipo = String(result.ocr.tipoDoc).trim().toUpperCase();
         const { setDiligencia } = useWizardStore.getState();
@@ -420,26 +468,10 @@ function UploadDocCard({
             </span>
 
             {/* Móvil: botones Cámara y Galería */}
-            <div className="flex sm:hidden gap-2 mt-1">
-              <button
-                data-upload-btn
-                type="button"
-                onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow active:scale-95 transition-transform"
-              >
-                <Camera size={13} />
-                Cámara
-              </button>
-              <button
-                data-upload-btn
-                type="button"
-                onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow active:scale-95 transition-transform"
-              >
-                <Images size={13} />
-                Galería
-              </button>
-            </div>
+            <MobileUploadButtons
+              onCamera={() => cameraRef.current?.click()}
+              onGallery={() => inputRef.current?.click()}
+            />
 
             <span className="text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
           </div>
@@ -480,12 +512,19 @@ function UploadDocCard({
         )}
 
         {currentStatus === 'error' && (
-          <div className="flex flex-col items-center gap-1.5 pointer-events-none">
-            <div className="w-14 h-14 rounded-2xl bg-rose-100 grid place-items-center">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 grid place-items-center pointer-events-none">
               <AlertCircle size={24} className="text-rose-500" strokeWidth={2.2} />
             </div>
-            <p className="text-xs font-bold text-rose-700">Error · Click para reintentar</p>
-            <p className="text-[0.65rem] text-rose-500 max-w-full truncate px-2 text-center">{docState.error}</p>
+            <p className="text-xs font-bold text-rose-700 pointer-events-none">
+              <span className="hidden sm:inline">Error · Click para reintentar</span>
+              <span className="sm:hidden">Error · Vuelve a intentar</span>
+            </p>
+            <p className="text-[0.65rem] text-rose-500 max-w-full truncate px-2 text-center pointer-events-none">{docState.error}</p>
+            <MobileUploadButtons
+              onCamera={() => cameraRef.current?.click()}
+              onGallery={() => inputRef.current?.click()}
+            />
           </div>
         )}
       </div>
@@ -550,7 +589,7 @@ export function OcrStep() {
   const {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
-    titularFromCarnet, asegurado,
+    titularFromCarnet, asegurado, hasDriver, conductor,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -711,6 +750,29 @@ export function OcrStep() {
           useWizardStore.getState().setTitularFromCarnet(false);
         }
       }
+
+      // ── Licencia distinta a cédula → conductor habitual ─────────────────────
+      const licenciaOcr = documents.licencia?.ocr;
+      const licenciaId = normalizeIdentificacionDigits(licenciaOcr?.identificacion);
+      const cedulaIdNorm = normalizeIdentificacionDigits(cedula?.identificacion);
+
+      if (licenciaOcr && licenciaId && cedulaIdNorm && licenciaId !== cedulaIdNorm) {
+        const fromLicencia = extractPersonFromOcr(licenciaOcr);
+        if (fromLicencia) {
+          useWizardStore.getState().setHasDriver(true);
+          useWizardStore.getState().setConductor({
+            nombre: fromLicencia.nombre,
+            apellido: fromLicencia.apellido,
+            identificacion: fromLicencia.identificacion,
+            tipoDoc: fromLicencia.tipoDoc,
+            licencia: fromLicencia.licencia ?? '',
+            fechaNac: fromLicencia.fechaNac ?? '',
+          });
+        }
+      } else {
+        useWizardStore.getState().setHasDriver(false);
+      }
+
       setOcrDone(true);
     }
   }, [
@@ -719,6 +781,7 @@ export function OcrStep() {
     hasVehicle,
     documents.cedula.ocr,
     documents.certificado.ocr,
+    documents.licencia.ocr,
     catalogs.sexos,
     catalogs.estadosCivil,
     setTomador,
@@ -835,6 +898,19 @@ export function OcrStep() {
           ? formatDocumentoLabel(asegurado.identificacion, asegurado.tipoDoc ?? 'V')
           : '';
 
+        const docConductor = conductor.identificacion
+          ? formatDocumentoLabel(conductor.identificacion, conductor.tipoDoc ?? 'V')
+          : '';
+        const multiPersonas = titularFromCarnet || hasDriver;
+        const personasCount = 1 + (titularFromCarnet ? 1 : 0) + (hasDriver ? 1 : 0);
+        const bannerHint = titularFromCarnet && hasDriver
+          ? 'Cédula, carnet y licencia son de personas distintas. Se separan tomador, titular y conductor habitual.'
+          : titularFromCarnet
+            ? 'El carnet del vehículo pertenece a una persona distinta. Se separan tomador y titular.'
+            : hasDriver
+              ? 'La licencia pertenece a otra persona. Se precargará como conductor habitual en el paso del vehículo.'
+              : 'Hemos precargado la información en el siguiente paso. Podrás revisarla y editarla si es necesario.';
+
         // ── Chip genérico ────────────────────────────────────────────────────
         const Chip = ({
           label, value, color = 'white',
@@ -871,47 +947,58 @@ export function OcrStep() {
                     </span>
                   </p>
                   <p className="text-xs text-indigo-100 mt-0.5 leading-relaxed">
-                    {titularFromCarnet
-                      ? 'El carnet del vehículo pertenece a una persona distinta. Se separan tomador y titular.'
-                      : 'Hemos precargado la información en el siguiente paso. Podrás revisarla y editarla si es necesario.'}
+                    {bannerHint}
                   </p>
                 </div>
-                {titularFromCarnet && (
+                {multiPersonas && (
                   <span className="flex-shrink-0 text-[0.6rem] font-bold bg-amber-400/80 text-amber-950 px-2 py-1 rounded-full tracking-wider">
-                    2 personas
+                    {personasCount} personas
                   </span>
                 )}
               </div>
 
-              {titularFromCarnet ? (
-                /* ── Dos columnas: Tomador | Propietario carnet ── */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Tomador */}
+              {multiPersonas ? (
+                <div className={`grid grid-cols-1 gap-3 ${hasDriver && titularFromCarnet ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'}`}>
                   <div className="rounded-xl bg-white/10 border border-white/20 p-3">
                     <p className="text-[0.65rem] font-black uppercase tracking-widest text-indigo-200 mb-2.5 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 inline-block" />
-                      Tomador · Cédula / Licencia
+                      Tomador · Cédula
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <Chip label="Nombre" value={nombre} />
                       <Chip label="Apellido" value={apellido} />
                       <Chip label="Documento" value={documento} />
-                      {hasVehicle && <Chip label="Placa" value={placa} />}
+                      {hasVehicle && !titularFromCarnet && !hasDriver && <Chip label="Placa" value={placa} />}
                     </div>
                   </div>
-                  {/* Propietario carnet */}
-                  <div className="rounded-xl bg-amber-400/15 border border-amber-300/25 p-3">
-                    <p className="text-[0.65rem] font-black uppercase tracking-widest text-amber-200 mb-2.5 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-300 inline-block" />
-                      Titular · Propietario del carnet
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Chip label="Nombre" value={asegurado.nombre || '—'} color="amber" />
-                      <Chip label="Apellido" value={asegurado.apellido || 'Completar'} color="amber" />
-                      <Chip label="Documento" value={docCarnet || '—'} color="amber" />
-                      {hasVehicle && <Chip label="Placa" value={placa} color="amber" />}
+                  {titularFromCarnet && (
+                    <div className="rounded-xl bg-amber-400/15 border border-amber-300/25 p-3">
+                      <p className="text-[0.65rem] font-black uppercase tracking-widest text-amber-200 mb-2.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-300 inline-block" />
+                        Titular · Propietario del carnet
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Chip label="Nombre" value={asegurado.nombre || '—'} color="amber" />
+                        <Chip label="Apellido" value={asegurado.apellido || 'Completar'} color="amber" />
+                        <Chip label="Documento" value={docCarnet || '—'} color="amber" />
+                        {hasVehicle && <Chip label="Placa" value={placa} color="amber" />}
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {hasDriver && (
+                    <div className="rounded-xl bg-violet-400/15 border border-violet-300/25 p-3">
+                      <p className="text-[0.65rem] font-black uppercase tracking-widest text-violet-200 mb-2.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-300 inline-block" />
+                        Conductor habitual · Licencia
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Chip label="Nombre" value={conductor.nombre || '—'} />
+                        <Chip label="Apellido" value={conductor.apellido || 'Completar'} />
+                        <Chip label="Documento" value={docConductor || '—'} />
+                        <Chip label="Licencia" value={conductor.licencia || documents.licencia.ocr?.numeroLicencia} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* ── Una fila: flujo normal ── */
