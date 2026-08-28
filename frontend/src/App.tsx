@@ -12,6 +12,7 @@ import { publicAsset } from './lib/app-base';
 import { ChevronRight, Sparkles, ShieldCheck, CheckCircle2, ScanLine, Lock } from 'lucide-react';
 import { useEffect } from 'react';
 import { applyMetadataFromNexusToken } from './lib/nexus-token-client';
+import { useUiFlags } from './lib/ui-flags';
 
 import { useProductConfig } from './hooks/useProductConfig';
 import { CatalogPickerStep } from './features/catalog/CatalogPickerStep';
@@ -52,6 +53,7 @@ export default function App() {
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
+  const { hideHeader, hideStepper, hideTrustBanner, hideFooterBar } = useUiFlags(config);
   const showCatalogPicker = builderCatalogMode && !builderProduct;
 
   // Interceptar SSO Delegation (nexus_token + legacy session_token)
@@ -264,36 +266,37 @@ export default function App() {
       </div>
 
       {/* Barra de marca (desktop) */}
-      <header className="hidden lg:block sticky top-0 z-40">
-        <div className="glass-light border-b border-white/50">
-          <div className="max-w-5xl mx-auto px-10 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
-                <img
-                  src={publicAsset('logo-isotipo-transparente.png')}
-                  alt="La Mundial de Seguros"
-                  className="w-6 h-auto"
-                  draggable={false}
-                />
-              </div>
-              <div className="leading-tight">
-                <p className="font-wordmark text-lg text-[#091133]">
-                  La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
-                </p>
-                <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-slate-400">
-                  Suscripción digital
-                </p>
+      {!hideHeader && (
+        <header className="hidden lg:block sticky top-0 z-40">
+          <div className="glass-light border-b border-white/50">
+            <div className="max-w-5xl mx-auto px-10 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
+                  <img
+                    src={publicAsset('logo-isotipo-transparente.png')}
+                    alt="La Mundial de Seguros"
+                    className="w-6 h-auto"
+                    draggable={false}
+                  />
+                </div>
+                <div className="leading-tight">
+                  <p className="font-wordmark text-lg text-[#091133]">
+                    La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
+                  </p>
+                  <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-slate-400">
+                    Suscripción digital
+                  </p>
+                </div>
               </div>
             </div>
-
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <div>
         <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-32 lg:pb-12">
           <div className="max-w-5xl mx-auto">
-            <TopStepper />
+            {!hideStepper && <TopStepper />}
 
             {!isSuccess && (
               <header className="mb-8 animate-fade-in">
@@ -311,20 +314,22 @@ export default function App() {
                     </p>
 
                     {/* Chips de confianza */}
-                    <div className="mt-4 flex items-center gap-2 flex-wrap">
-                      <span className="chip">
-                        <ScanLine size={12} className="text-indigo-500" />
-                        Lectura OCR con IA
-                      </span>
-                      <span className="chip">
-                        <Lock size={12} className="text-emerald-500" />
-                        Datos cifrados
-                      </span>
-                      <span className="chip">
-                        <Sparkles size={12} className="text-fuchsia-500" />
-                        Precarga automática
-                      </span>
-                    </div>
+                    {!hideTrustBanner && (
+                      <div className="mt-4 flex items-center gap-2 flex-wrap">
+                        <span className="chip">
+                          <ScanLine size={12} className="text-indigo-500" />
+                          Lectura OCR con IA
+                        </span>
+                        <span className="chip">
+                          <Lock size={12} className="text-emerald-500" />
+                          Datos cifrados
+                        </span>
+                        <span className="chip">
+                          <Sparkles size={12} className="text-fuchsia-500" />
+                          Precarga automática
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                 </div>
@@ -360,7 +365,7 @@ export default function App() {
                 )}
               </div>
 
-              {!isSuccess && (
+              {!isSuccess && !hideFooterBar && (
                 <div className="hidden md:flex items-center justify-between gap-4 px-8 lg:px-10 py-5 border-t border-slate-100/80 bg-gradient-to-b from-slate-50/50 to-white/40 backdrop-blur-sm">
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <ShieldCheck size={13} className="text-emerald-500" />
