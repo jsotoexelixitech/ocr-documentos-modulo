@@ -12,6 +12,15 @@ function resolveCarnetId(cert?: OcrResult | null): string {
   );
 }
 
+function normalizePersonName(nombre?: string, apellido?: string): string {
+  return `${nombre ?? ''} ${apellido ?? ''}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 export interface OcrPersonRolesResult {
   sameInsured: boolean;
   titularFromCarnet: boolean;
@@ -48,23 +57,33 @@ export function resolveOcrPersonRoles(
     };
   }
 
-  const licenciaDistinta =
-    !!licencia
-    && !!licenciaId
-    && licenciaId !== cedulaId
+  const fromLicencia = extractPersonFromOcr(licencia);
+  const cedulaName = normalizePersonName(cedula?.nombre, cedula?.apellido);
+  const titularCarnet = certificado ? extractTomadorFromCertificado(certificado) : null;
+  const carnetName = titularCarnet
+    ? normalizePersonName(titularCarnet.nombre, titularCarnet.apellido)
+    : '';
+  const licenciaName = normalizePersonName(licencia?.nombre, licencia?.apellido);
+
+  const idDistinta =
+    !!licenciaId
+    && (!cedulaId || licenciaId !== cedulaId)
     && (!carnetId || licenciaId !== carnetId);
 
-  if (licenciaDistinta) {
-    const fromLicencia = extractPersonFromOcr(licencia);
-    if (fromLicencia) {
-      return {
-        sameInsured,
-        titularFromCarnet,
-        asegurado,
-        hasDriver: true,
-        conductor: fromLicencia,
-      };
-    }
+  const nombreDistinto =
+    !licenciaId
+    && !!licenciaName
+    && (!cedulaName || licenciaName !== cedulaName)
+    && (!carnetName || licenciaName !== carnetName);
+
+  if (fromLicencia && (idDistinta || nombreDistinto)) {
+    return {
+      sameInsured,
+      titularFromCarnet,
+      asegurado,
+      hasDriver: true,
+      conductor: fromLicencia,
+    };
   }
 
   return { sameInsured, titularFromCarnet, asegurado, hasDriver: false };

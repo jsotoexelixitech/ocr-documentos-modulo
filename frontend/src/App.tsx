@@ -24,6 +24,7 @@ import {
 } from './lib/builder-catalog';
 import { adjustDocsForBinacionalCarnet } from './lib/ocr-binacional';
 import { buildOcrHandoff, continueToFormularioModule } from './lib/exelixi-handoff';
+import { resolveOcrPersonRoles } from './lib/ocr-person-roles';
 import {
   getOptionalDocs,
   getRequiredDocs,
@@ -124,12 +125,33 @@ export default function App() {
   const isSuccess = step === 2;
 
   function advanceToFormulario() {
+    const state = useWizardStore.getState();
+    const roles = resolveOcrPersonRoles(
+      state.documents.cedula?.ocr,
+      state.documents.certificado?.ocr,
+      state.documents.licencia?.ocr,
+    );
+    if (roles.hasDriver && roles.conductor) {
+      state.setHasDriver(true);
+      state.setConductor(roles.conductor);
+    }
+    state.setSameInsured(roles.sameInsured);
+    state.setTitularFromCarnet(roles.titularFromCarnet);
+    if (roles.asegurado) {
+      state.setAsegurado(roles.asegurado);
+    }
     continueToFormularioModule(
       buildOcrHandoff(
         builderProduct?.id ?? product.id,
-        documents,
+        state.documents,
         builderProduct ?? undefined,
-        diligencia,
+        state.diligencia,
+        {
+          hasDriver: roles.hasDriver,
+          conductor: roles.conductor,
+          sameInsured: roles.sameInsured,
+          asegurado: roles.asegurado,
+        },
       ),
     );
   }

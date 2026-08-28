@@ -1,4 +1,4 @@
-import type { DocType, DocumentState } from '../types';
+import type { DocType, DocumentState, PersonData } from '../types';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
 import type { DiligenciaState } from './diligencia';
 import { persistBuilderProduct } from './builder-catalog';
@@ -43,6 +43,10 @@ export interface ExelixiOcrHandoff {
   documentosRequeridos?: DocType[];
   documentHashes?: Partial<Record<DocType, string>>;
   diligencia?: DiligenciaState | null;
+  hasDriver?: boolean;
+  conductor?: Partial<PersonData>;
+  sameInsured?: boolean;
+  asegurado?: Partial<PersonData>;
   savedAt: number;
 }
 
@@ -56,6 +60,12 @@ export function buildOcrHandoff(
   documents: Record<DocType, DocumentState>,
   product?: BuilderCatalogProduct,
   diligencia?: DiligenciaState | null,
+  personRoles?: {
+    hasDriver?: boolean;
+    conductor?: Partial<PersonData>;
+    sameInsured?: boolean;
+    asegurado?: Partial<PersonData>;
+  },
 ): ExelixiOcrHandoff {
   const ocrData: Partial<Record<OcrDocType, OcrFields>> = {};
   const types: OcrDocType[] = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte'];
@@ -75,6 +85,10 @@ export function buildOcrHandoff(
     documentosRequeridos: diligencia?.documentosRequeridos,
     documentHashes,
     diligencia: diligencia ?? null,
+    hasDriver: personRoles?.hasDriver,
+    conductor: personRoles?.conductor,
+    sameInsured: personRoles?.sameInsured,
+    asegurado: personRoles?.asegurado,
     savedAt: Date.now(),
   };
 }
@@ -171,6 +185,10 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
       exelixiCatalog: true,
       builderProduct: handoff.product,
       productId: handoff.productId,
+      hasDriver: handoff.hasDriver,
+      conductor: handoff.conductor,
+      sameInsured: handoff.sameInsured,
+      asegurado: handoff.asegurado,
     });
     return;
   }

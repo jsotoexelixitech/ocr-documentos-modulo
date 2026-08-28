@@ -569,7 +569,27 @@ const SCHEMAS = {
     type: Type.OBJECT,
     properties: {
       documentoTipo: DOC_TYPE_PROP,
-      numeroLicencia: { type: Type.STRING },
+      nombre: { type: Type.STRING, description: 'Primer nombre del titular de la licencia' },
+      apellido: { type: Type.STRING, description: 'Primer apellido del titular de la licencia' },
+      identificacion: {
+        type: Type.STRING,
+        description:
+          'Cedula / C.I. / documento de identidad del TITULAR de la licencia, solo digitos. ' +
+          'NO pongas aqui el numero de la licencia.',
+      },
+      tipoDoc: {
+        type: Type.STRING,
+        enum: ['V', 'E', 'P'],
+        description: 'V=venezolano, E=extranjero/colombiano, P=pasaporte',
+      },
+      fechaNacimiento: {
+        type: Type.STRING,
+        description: 'Fecha de nacimiento del titular en formato YYYY-MM-DD',
+      },
+      numeroLicencia: {
+        type: Type.STRING,
+        description: 'Numero de la licencia de conducir (campo No.), distinto de la cedula',
+      },
       categoria: {
         type: Type.STRING,
         description: 'Grado o categoria (1ra, 2da, 3ra, 4ta, 5ta, A, B, C)',
@@ -720,6 +740,8 @@ const PROMPTS = {
     'Tipo solicitado: LICENCIA DE CONDUCIR (Venezuela INTT o Colombia — flujo RCV extranjero). ' +
     '=== Venezuela === "Licencia para Conducir" INTT. ' +
     '=== Colombia === "Licencia de Conduccion" Republica de Colombia / Ministerio de Transporte. ' +
+    'identificacion = C.I. / cedula del TITULAR (solo digitos). NUNCA copies numeroLicencia a identificacion. ' +
+    'nombre y apellido = titular de la licencia. fechaNacimiento si aparece. ' +
     'numeroLicencia = numero del documento (campo No.). ' +
     'Pon especial atencion a la fecha de vencimiento y al grado o categoria.',
   certificado:
