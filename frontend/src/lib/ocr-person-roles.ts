@@ -1,6 +1,6 @@
 import type { OcrResult, PersonData } from '../types';
 import { extractTomadorFromCertificado } from './carnet-propietario';
-import { inferTipoDocFromRaw, normalizeIdentificacionDigits } from './identificacion';
+import { normalizeIdentificacionDigits } from './identificacion';
 import { extractPersonFromOcr } from './ocr-person';
 
 function resolveCarnetId(cert?: OcrResult | null): string {
