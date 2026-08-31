@@ -119,6 +119,10 @@ function isLocalAbsoluteUrl(value: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/i.test(value);
 }
 
+function isProductionAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) && !isLocalAbsoluteUrl(value);
+}
+
 /** Siguiente paso: módulo formulario (misma cadena que La Mundial, rama Exélixi). */
 export function getFormularioContinueUrl(): string {
   const configured = (import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined)?.replace(/\/$/, '') || '';
@@ -128,9 +132,13 @@ export function getFormularioContinueUrl(): string {
     base = configured && !configured.startsWith('/')
       ? configured
       : 'http://localhost:5182';
-  } else if (configured && !isLocalAbsoluteUrl(configured)
-    && (configured.startsWith('/') || configured.startsWith('.'))) {
-    base = configured;
+  } else if (configured) {
+    if (isProductionAbsoluteUrl(configured)) {
+      base = configured;
+    } else if (!isLocalAbsoluteUrl(configured)
+      && (configured.startsWith('/') || configured.startsWith('.'))) {
+      base = configured;
+    }
   }
 
   const params = new URLSearchParams();
@@ -180,7 +188,10 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
     return;
   }
 
+  const fallbackUrl = getFormularioContinueUrl();
+
   if (typeof window.__bridgeAdvance === 'function') {
+    const startHref = window.location.href;
     void window.__bridgeAdvance({
       exelixiCatalog: true,
       builderProduct: handoff.product,
@@ -189,11 +200,18 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
       conductor: handoff.conductor,
       sameInsured: handoff.sameInsured,
       asegurado: handoff.asegurado,
+    }).catch(() => {
+      window.location.href = fallbackUrl;
     });
+    window.setTimeout(() => {
+      if (window.location.href === startHref) {
+        window.location.href = fallbackUrl;
+      }
+    }, 2500);
     return;
   }
 
-  window.location.href = getFormularioContinueUrl();
+  window.location.href = fallbackUrl;
 }
 
 /** @deprecated Usar continueToFormularioModule — product-builder es solo catálogo admin. */
