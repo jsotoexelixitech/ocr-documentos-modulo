@@ -17,7 +17,8 @@ export default defineConfig(({ mode }) => {
 
   // Mismo mapa de proxy para el dev server (`vite`) y para `vite preview`
   // (producción sirve el build con preview, que NO hereda `server.proxy`).
-  const modulePrefix = resolvePublicModulePrefix(env, base) || '/ocr';
+  const modulePrefix =
+    resolvePublicModulePrefix(env, base) || (base === '/' ? '' : '/ocr');
   const nexusTarget = env.VITE_NEXUS_API_PROXY || 'http://127.0.0.1:3092';
 
   const proxy = withNexusPreviewProxy(
