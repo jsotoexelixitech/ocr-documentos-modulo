@@ -100,6 +100,8 @@ const initialState: WizardState = {
   builderProduct: useBuilderCatalog() ? readStoredBuilderProduct() : null,
   documents: {
     cedula: defaultDoc(),
+    cedula_titular: defaultDoc(),
+    cedula_beneficiario: defaultDoc(),
     licencia: defaultDoc(),
     certificado: defaultDoc(),
     rif: defaultDoc(),

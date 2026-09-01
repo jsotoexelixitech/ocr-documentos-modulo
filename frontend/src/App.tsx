@@ -36,7 +36,9 @@ import type { DocType } from './types';
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 const DOC_LABELS: Record<string, string> = {
-  cedula: 'cédula',
+  cedula: 'cédula del tomador',
+  cedula_titular: 'cédula del titular',
+  cedula_beneficiario: 'cédula del beneficiario',
   licencia: 'licencia',
   certificado: 'certificado',
   pasaporte: 'pasaporte',
@@ -198,6 +200,11 @@ export default function App() {
         requiredDocs = Object.keys(docs).filter((k) => docs[k].activo && docs[k].obligatorio) as DocType[];
         optionalDocs = Object.keys(docs).filter((k) => docs[k].activo && !docs[k].obligatorio) as DocType[];
       }
+    }
+
+    if (product.id === 'funerario' && !builderProduct) {
+      requiredDocs = ['cedula', 'cedula_titular', 'cedula_beneficiario'];
+      optionalDocs = [];
     }
 
     return adjustDocsForBinacionalCarnet(

@@ -21,6 +21,8 @@ import {
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
 import { resolveOcrPersonRoles } from '../../lib/ocr-person-roles';
+import { isCedulaOcrSlot } from '../../lib/ocr-engine-doc';
+import { applyFuneralOcrCedulas } from '../../lib/funeral-ocr-apply';
 import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
@@ -135,10 +137,24 @@ function HiddenFileInputs({
 const DOCS: DocConfig[] = [
   {
     type: 'cedula',
-    label: 'Cédula de identidad',
-    description: 'Documento del tomador',
+    label: 'Cédula del tomador',
+    description: 'Quien paga la póliza',
     Icon: IdCard,
     accent: 'from-indigo-500 to-violet-500',
+  },
+  {
+    type: 'cedula_titular',
+    label: 'Cédula del titular',
+    description: 'Persona asegurada (funerario)',
+    Icon: IdCard,
+    accent: 'from-violet-500 to-fuchsia-500',
+  },
+  {
+    type: 'cedula_beneficiario',
+    label: 'Cédula del beneficiario',
+    description: 'Quien recibe el beneficio',
+    Icon: IdCard,
+    accent: 'from-fuchsia-500 to-rose-500',
   },
   {
     type: 'licencia',
@@ -336,7 +352,7 @@ function UploadDocCard({
         hash: result.hash,
       });
 
-      if (config.type === 'cedula' && result.ocr && typeof result.ocr === 'object') {
+      if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
         const rawId = result.ocr.identificacion as string | undefined;
         const digits = normalizeIdentificacionDigits(rawId);
         const tipoDoc =
@@ -669,7 +685,10 @@ export function OcrStep() {
     );
   }
 
-  if (builderProduct) {
+  if (product.id === 'funerario' && !builderProduct) {
+    requiredDocs = ['cedula', 'cedula_titular', 'cedula_beneficiario'];
+    optionalDocs = [];
+  } else if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
     optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
@@ -727,6 +746,9 @@ export function OcrStep() {
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
+      if (product.id === 'funerario') {
+        applyFuneralOcrCedulas();
+      }
       const cedula = documents.cedula.ocr;
       if (cedula?.nombre || cedula?.identificacion) {
         // El OCR de Gemini devuelve "Soltero(a)" / "Femenino" pero el catálogo

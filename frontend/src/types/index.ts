@@ -1,4 +1,11 @@
-export type DocType = 'cedula' | 'licencia' | 'certificado' | 'rif' | 'pasaporte';
+export type DocType =
+  | 'cedula'
+  | 'cedula_titular'
+  | 'cedula_beneficiario'
+  | 'licencia'
+  | 'certificado'
+  | 'rif'
+  | 'pasaporte';
 
 export type { DiligenciaState, TipoDiligencia } from '../lib/diligencia';
 
@@ -88,6 +95,7 @@ export type PersonData = {
   tipoDoc?: string;
   fechaNac?: string;
   parentesco?: string;
+  pporcen?: number;
   licencia?: string;
   relacion?: string;
   telefono?: string;
