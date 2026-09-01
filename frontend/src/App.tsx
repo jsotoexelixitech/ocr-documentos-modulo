@@ -30,6 +30,7 @@ import {
   getRequiredDocs,
   preClasificarDiligencia,
   resolveRcvOcrEntryDocs,
+  toDiligenciaDocTypes,
 } from './lib/diligencia';
 import type { DocType } from './types';
 
@@ -173,12 +174,12 @@ export default function App() {
       requiredDocs = getRequiredDocs(
         config as Record<string, unknown> | null,
         itipoDiligencia,
-        product.docs.required,
+        toDiligenciaDocTypes(product.docs.required),
       );
       optionalDocs = getOptionalDocs(
         config as Record<string, unknown> | null,
         itipoDiligencia,
-        product.docs.optional,
+        toDiligenciaDocTypes(product.docs.optional),
       );
     }
 

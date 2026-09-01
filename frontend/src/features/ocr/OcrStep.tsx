@@ -644,7 +644,9 @@ import {
   getOptionalDocs,
   getRequiredDocs,
   preClasificarDiligencia,
+  isDiligenciaDocType,
   resolveRcvOcrEntryDocs,
+  toDiligenciaDocTypes,
 } from '../../lib/diligencia';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
@@ -676,12 +678,12 @@ export function OcrStep() {
     requiredDocs = getRequiredDocs(
       config as Record<string, unknown> | null,
       itipoDiligencia,
-      product.docs.required,
+      toDiligenciaDocTypes(product.docs.required),
     );
     optionalDocs = getOptionalDocs(
       config as Record<string, unknown> | null,
       itipoDiligencia,
-      product.docs.optional,
+      toDiligenciaDocTypes(product.docs.optional),
     );
   }
 
@@ -711,12 +713,12 @@ export function OcrStep() {
     if (product.id !== 'rcv') return;
     const hashes = Object.fromEntries(
       Object.entries(documents)
-        .filter(([, d]) => d?.hash)
+        .filter(([k, d]) => d?.hash && isDiligenciaDocType(k))
         .map(([k, d]) => [k, d!.hash!]),
     );
     setDiligencia({
       itipoDiligencia,
-      documentosRequeridos: effectiveRequired,
+      documentosRequeridos: toDiligenciaDocTypes(effectiveRequired),
       documentHashes: hashes,
       clasificadoEn: 'ocr',
     });
