@@ -1,7 +1,8 @@
 import type { DocType, DocumentState, PersonData } from '../types';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
 import type { DiligenciaState } from './diligencia';
-import { persistBuilderProduct } from './builder-catalog';
+import { persistBuilderProduct, useBuilderCatalog } from './builder-catalog';
+import { getProductId } from './product';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
 
@@ -165,7 +166,12 @@ export function getFormularioContinueUrl(): string {
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
   } catch {
-    params.set('product', 'rcv');
+    try {
+      const stored = sessionStorage.getItem('exelixi_product');
+      params.set('product', stored === 'funerario' ? 'funerario' : 'rcv');
+    } catch {
+      params.set('product', 'rcv');
+    }
   }
 
   return `${base}/?${params.toString()}`;
@@ -173,7 +179,8 @@ export function getFormularioContinueUrl(): string {
 
 export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
   persistOcrHandoff(handoff);
-  persistBuilderProduct(handoff.product ?? null);
+  const catalog = useBuilderCatalog();
+  if (catalog) persistBuilderProduct(handoff.product ?? null);
 
   if (isLocalHost()) {
     let url = getFormularioContinueUrl();
@@ -192,9 +199,14 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
 
   if (typeof window.__bridgeAdvance === 'function') {
     const startHref = window.location.href;
+    const lmProduct =
+      handoff.productId === 'funerario' || getProductId() === 'funerario'
+        ? 'funerario'
+        : getProductId();
     void window.__bridgeAdvance({
-      exelixiCatalog: true,
-      builderProduct: handoff.product,
+      ...(catalog
+        ? { exelixiCatalogFlow: true, builderProduct: handoff.product }
+        : { product: lmProduct, exelixiCatalogFlow: false }),
       productId: handoff.productId,
       hasDriver: handoff.hasDriver,
       conductor: handoff.conductor,
