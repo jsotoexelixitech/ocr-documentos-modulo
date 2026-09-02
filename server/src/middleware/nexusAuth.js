@@ -24,6 +24,12 @@
  * se intenta extraer el empresaId para fines de logging/aislamiento.
  */
 const jwt = require('jsonwebtoken');
+const { restoreMarketplaceActor } = require('../lib/marketplace-actor-cache');
+
+function done(req, _res, next) {
+  try { restoreMarketplaceActor(req); } catch { /* ignore */ }
+  return done(req, res, next);
+}
 
 const ENABLED         = process.env.NEXUS_AUTH_ENABLED === 'true';
 const SECRET          = process.env.TENANT_TOKEN_SECRET || '';
@@ -74,7 +80,7 @@ async function nexusAuth(req, res, next) {
   if (isBypass) {
     req.empresa = { id: 1 };
     req.submoduloId = EXPECTED_SUBMODS.length > 0 ? EXPECTED_SUBMODS[0] : 17;
-    return next();
+    return done(req, res, next);
   }
 
   // Flujo genérico Exélixi (catálogo product-builder) — acceso directo sin nexus_token
@@ -82,7 +88,7 @@ async function nexusAuth(req, res, next) {
     req.empresa = { id: 0 };
     req.submoduloId = null;
     req.builderCatalogFlow = true;
-    return next();
+    return done(req, res, next);
   }
   // -----------------------------------
 
@@ -97,7 +103,7 @@ async function nexusAuth(req, res, next) {
         }
       } catch { /* ignore */ }
     }
-    return next();
+    return done(req, res, next);
   }
 
   if (!SECRET) {
@@ -178,7 +184,7 @@ async function nexusAuth(req, res, next) {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    return next();
+    return done(req, res, next);
   } catch (err) {
     return res.status(401).json({
       success: false,
