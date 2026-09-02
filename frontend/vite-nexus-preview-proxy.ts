@@ -10,10 +10,12 @@ import { URL } from 'node:url';
 export function nexusPreviewProxyPlugin(
   modulePrefix: string,
   target = 'http://127.0.0.1:3092',
+  flowTarget = 'http://127.0.0.1:3091',
 ): Plugin {
   const prefix = modulePrefix.replace(/\/$/, '');
   const mounts = [`${prefix}/nexus-api`, '/nexus-api'];
   const targetBase = target.replace(/\/$/, '');
+  const flowBase = flowTarget.replace(/\/$/, '');
 
   const attach = (middlewares: Connect.Server) => {
     middlewares.use((req, res, next) => {
@@ -31,7 +33,8 @@ export function nexusPreviewProxyPlugin(
       try {
         // No usar new URL(absolutePath, base): un path que empieza con "/"
         // reemplaza todo el pathname del target (pierde /nexus-api).
-        dest = new URL(`${targetBase}${rest}${qs}`);
+        const destBase = rest.startsWith('/api/flow') ? flowBase : targetBase;
+        dest = new URL(`${destBase}${rest}${qs}`);
       } catch {
         res.statusCode = 502;
         res.end('Bad Gateway');
