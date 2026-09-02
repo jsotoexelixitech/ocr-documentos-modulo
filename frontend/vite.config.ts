@@ -43,7 +43,7 @@ export default defineConfig(({ mode }) => {
       nexusPreviewProxyPlugin(modulePrefix, nexusTarget),
       react(),
       tailwindcss(),
-      spaPreviewFallback(base),
+      spaPreviewFallback(base, modulePrefix),
     ],
     server: {
       host: true,

@@ -6,7 +6,9 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/build-env-nexus.sh"
 cd "$ROOT/frontend"
 unset PORT VITE_APP_BASE VITE_EMISSION_CONTINUE_BASE PRODUCT_BUILDER 2>/dev/null || true
-export VITE_APP_BASE=/ocr/
+# Prefijo /ocr/ solo en Apache (ProxyPass strip → :5181/). El build nunca usa /ocr/ absoluto.
+export VITE_APP_BASE=./
+# Solo para proxy nexus-api en vite preview (/ocr/nexus-api → Apache → /nexus-api en :5181)
 export VITE_DEPLOY_PREFIX=/ocr
 export VITE_FORMULARIO_CONTINUE_BASE=/formulario
 echo "Build OCR VITE_APP_BASE=${VITE_APP_BASE} VITE_DEPLOY_PREFIX=${VITE_DEPLOY_PREFIX}"

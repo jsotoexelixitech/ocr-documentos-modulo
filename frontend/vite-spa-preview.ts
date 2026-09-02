@@ -2,15 +2,15 @@ import type { Plugin } from 'vite';
 import { isBackendProxyPath } from './vite-paths';
 
 /**
- * Fallback SPA para `vite preview` bajo subpath (/ocr/).
+ * Fallback SPA para `vite preview`.
  *
- * Casos:
- * 1. Apache bien: GET /ocr/exelixi/ → sirve /ocr/index.html
- * 2. Apache mal (strip prefix): GET /exelixi/ → redirige a /ocr/?flow=exelixi-catalog
+ * Apache hace strip: `/ocr/` → `:5181/` — Vite solo ve `/`, `/exelixi/`, etc.
+ * `deployPrefix` (/ocr) se usa solo para redirects al navegador (URL pública).
  */
-export function spaPreviewFallback(base: string): Plugin {
+export function spaPreviewFallback(base: string, deployPrefix = ''): Plugin {
   const normalizedBase = base === './' ? '/' : base.endsWith('/') ? base : `${base}/`;
   const basePath = normalizedBase.replace(/\/$/, '');
+  const publicPrefix = deployPrefix.replace(/\/$/, '');
 
   return {
     name: 'spa-preview-fallback',
@@ -30,7 +30,7 @@ export function spaPreviewFallback(base: string): Plugin {
           return;
         }
 
-        // ProxyPass /ocr/ → http://127.0.0.1:5181/ (sin /ocr/) — Vite ve /exelixi/
+        // Apache strip — Vite ve /exelixi/; el navegador debe ir a /ocr/?flow=...
         if (
           pathname === '/exelixi'
           || pathname === '/exelixi/'
@@ -38,14 +38,15 @@ export function spaPreviewFallback(base: string): Plugin {
         ) {
           const params = new URLSearchParams(search);
           if (!params.has('flow')) params.set('flow', 'exelixi-catalog');
-          const redirect = `${normalizedBase}?${params.toString()}`;
+          const redirectBase =
+            base === './' && publicPrefix ? `/${publicPrefix}/` : normalizedBase;
+          const redirect = `${redirectBase}?${params.toString()}`;
           res.statusCode = 302;
           res.setHeader('Location', redirect);
           res.end();
           return;
         }
 
-        // SPA: subrutas bajo /ocr/ que no son assets
         const isUnderBase =
           pathname === basePath
           || pathname === normalizedBase.slice(0, -1)
