@@ -6,7 +6,7 @@ import { Toaster } from './components/Toaster';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { Button } from './components/ui/Button';
 import { OcrStep } from './features/ocr/OcrStep';
-import { getProductConfig } from './lib/product';
+import { getProductConfig, persistProductFromHints } from './lib/product';
 import { toast } from './store/toastStore';
 import { publicAsset } from './lib/app-base';
 import { ChevronRight, Sparkles, ShieldCheck, CheckCircle2, ScanLine, Lock } from 'lucide-react';
@@ -99,6 +99,9 @@ export default function App() {
   useEffect(() => {
     applyMetadataFromNexusToken('nexus_access_token_ocr', (metadata) => {
       setMetadataCanal(metadata);
+      if (metadata.product === 'funerario' || metadata.product === 'rcv') {
+        persistProductFromHints({ product: String(metadata.product) });
+      }
     });
 
     const searchParams = new URLSearchParams(window.location.search);
