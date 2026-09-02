@@ -6,12 +6,14 @@ import { OcrConfigPanel } from './config/OcrConfigPanel.tsx'
 import './lib/bridge'
 import { NexusGuard } from './nexus/NexusGuard'
 import { applyExelixiBranding } from './lib/exelixi-branding'
-import { applyMetadataFromNexusToken } from './lib/nexus-token-client'
-import { mergeMarketplaceActorMetadata } from './lib/sso-metadata'
+import { applyMetadataFromNexusToken, getNexusTokenFromUrl } from './lib/nexus-token-client'
+import { mergeMarketplaceActorMetadata, rememberMarketplaceActorFromToken } from './lib/sso-metadata'
 import { useWizardStore } from './store/wizardStore'
 
 // Identidad Exélixi (colores + favicon) solo si el flujo activo es el catálogo.
 applyExelixiBranding('OCR de Documentos');
+
+rememberMarketplaceActorFromToken(getNexusTokenFromUrl());
 
 applyMetadataFromNexusToken('nexus_access_token_ocr', (metadata) => {
   const store = useWizardStore.getState();

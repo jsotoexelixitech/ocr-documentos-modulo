@@ -12,6 +12,7 @@ import { publicAsset } from './lib/app-base';
 import { ChevronRight, Sparkles, ShieldCheck, CheckCircle2, ScanLine, Lock } from 'lucide-react';
 import { useEffect } from 'react';
 import { applyMetadataFromNexusToken } from './lib/nexus-token-client';
+import { mergeMarketplaceActorMetadata } from './lib/sso-metadata';
 import { useUiFlags } from './lib/ui-flags';
 
 import { useProductConfig } from './hooks/useProductConfig';
@@ -98,7 +99,8 @@ export default function App() {
   // Interceptar SSO Delegation (nexus_token + legacy session_token)
   useEffect(() => {
     applyMetadataFromNexusToken('nexus_access_token_ocr', (metadata) => {
-      setMetadataCanal(metadata);
+      const current = useWizardStore.getState().metadataCanal || {};
+      setMetadataCanal(mergeMarketplaceActorMetadata({ ...current, ...metadata }));
       if (metadata.product === 'funerario' || metadata.product === 'rcv') {
         persistProductFromHints({ product: String(metadata.product) });
       }
@@ -116,14 +118,14 @@ export default function App() {
           const payload = JSON.parse(payloadStr);
           
           if (payload.metadata) {
-            setMetadataCanal(payload.metadata);
+            const current = useWizardStore.getState().metadataCanal || {};
+            setMetadataCanal(
+              mergeMarketplaceActorMetadata({ ...current, ...payload.metadata }),
+            );
           }
         }
       } catch (err) {
         console.error('Error decodificando session_token:', err);
-      } finally {
-        // Limpiar URL por seguridad
-        window.history.replaceState({}, '', window.location.pathname);
       }
     }
   }, [setMetadataCanal]);

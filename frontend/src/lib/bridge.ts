@@ -29,6 +29,7 @@ import { applyWizardStepFromUrl, defaultStepForModule, stepToModuleOrder } from 
 import {
   enrichBridgePayloadForSave,
   extractActorMetadataFromBridgeData,
+  rememberMarketplaceActorFromToken,
 } from './sso-metadata';
 
 // ── Configuración por puerto (dev local) o hostname (HTTPS sslip.io) ───────
@@ -384,6 +385,7 @@ function makeBridge(): BridgeAPI {
 async function init() {
   let bridge = makeBridge();
 
+  rememberMarketplaceActorFromToken(getNexusTokenFromUrl());
   adoptNexusTokenFromUrl(getModuleTokenKey());
 
   // Si no hay sid pero hay nexus_token, intentar auto-arranque del flujo
@@ -404,6 +406,9 @@ async function init() {
       const applied = applyWizardStepFromUrl(goTo);
       if (applied == null && bridge.order != null) {
         goTo(defaultStepForModule(bridge.order));
+      }
+      if (bridge.order === 1) {
+        void bridge.save();
       }
     });
 
