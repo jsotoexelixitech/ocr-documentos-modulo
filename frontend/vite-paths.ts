@@ -92,10 +92,12 @@ export function prefixDevProxy(
       : deployPrefix?.replace(/\/$/, '') ?? '';
 
   if (!root) return routes;
+
+  // Apache strip (/ocr/ → :5181/) llega como /api/...; sin strip llega /ocr/api/...
   const out: Record<
     string,
     { target: string; changeOrigin?: boolean; rewrite?: (path: string) => string }
-  > = {};
+  > = { ...routes };
 
   for (const [path, cfg] of Object.entries(routes)) {
     out[`${root}${path}`] = {

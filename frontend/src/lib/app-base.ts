@@ -5,7 +5,14 @@ function normalizedBase(): string {
 
 /** Base URL del módulo (Vite `base`). Ej. `/ocr/` → API en `/ocr/api`. */
 export function moduleApiBase(): string {
-  return `${normalizedBase()}api`;
+  const base = normalizedBase();
+  if (base === './' && typeof window !== 'undefined') {
+    let path = window.location.pathname;
+    if (path.endsWith('/index.html')) path = path.slice(0, -'/index.html'.length);
+    if (!path.endsWith('/')) path += '/';
+    return `${path}api`;
+  }
+  return `${base}api`;
 }
 
 /**
