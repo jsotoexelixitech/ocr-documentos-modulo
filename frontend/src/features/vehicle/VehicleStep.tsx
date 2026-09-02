@@ -8,7 +8,8 @@ import {
   Loader2, AlertTriangle,
 } from 'lucide-react';
 import { toast } from '../../store/toastStore';
-import { cn } from '../../lib/utils';
+import { TipoPlacaSelector } from '../../components/TipoPlacaSelector';
+import { placaMaxLength, placaPlaceholder, validatePlacaMessage } from '../../lib/placa-tipo';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
 import { useBuilderCatalog } from '../../lib/builder-catalog';
 import { getProductId } from '../../lib/product';
@@ -357,11 +358,8 @@ export function VehicleStep() {
     const len  = (v?: string) => (v ?? '').trim().length;
     const digs = (v?: string) => (v ?? '').replace(/\D/g, '').length;
 
-    if (req(vehicle.placa)) {
-      e.placa = 'La placa es obligatoria';
-    } else if (len(vehicle.placa) < 6) {
-      e.placa = 'La placa debe tener al menos 6 caracteres';
-    }
+    const placaErr = validatePlacaMessage(vehicle.placa, vehicle.tipoPlaca ?? 'nacional');
+    if (placaErr) e.placa = placaErr;
 
     if (req(vehicle.año)) e.año = 'Selecciona el año del vehículo';
     if (req(vehicle.marca))  e.marca  = 'La marca es obligatoria';
@@ -496,65 +494,22 @@ export function VehicleStep() {
       <SectionCard Icon={Car} title="¿Cuál es tu vehículo?" description="Cuéntanos sobre el vehículo que deseas asegurar">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          {/* Placa con selector de tipo (Nacional / Extranjera / Binacional) */}
-          <Field
-            label={
-              <span className="flex items-center justify-between gap-2 w-full">
-                <span>Placa</span>
-                <span className="inline-flex items-center gap-0 rounded-lg bg-slate-100 p-0.5 text-[0.65rem] font-bold border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setVehicle({ tipoPlaca: 'nacional' })}
-                    className={cn(
-                      'px-2 py-1 rounded-md transition-all',
-                      vehicle.tipoPlaca === 'nacional'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700',
-                    )}
-                  >
-                    Nacional
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVehicle({ tipoPlaca: 'extranjera' })}
-                    className={cn(
-                      'px-2 py-1 rounded-md transition-all',
-                      vehicle.tipoPlaca === 'extranjera'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700',
-                    )}
-                  >
-                    Extranjera
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVehicle({ tipoPlaca: 'binacional' })}
-                    className={cn(
-                      'px-2 py-1 rounded-md transition-all',
-                      vehicle.tipoPlaca === 'binacional'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700',
-                    )}
-                  >
-                    Binacional
-                  </button>
-                </span>
-              </span> as unknown as string
-            }
-            error={errors.placa}
-          >
+          {isRcvEmision && (
+            <TipoPlacaSelector
+              value={vehicle.tipoPlaca}
+              placa={vehicle.placa}
+              certOcr={ocrCert}
+              onChange={(tipoPlaca) => setVehicle({ tipoPlaca })}
+            />
+          )}
+
+          <Field label="Placa" error={errors.placa}>
             <Input
               value={vehicle.placa}
               onChange={(e) => setVehicle({ placa: e.target.value.toUpperCase() })}
-              placeholder={
-                vehicle.tipoPlaca === 'binacional'
-                  ? 'WON028'
-                  : vehicle.tipoPlaca === 'extranjera'
-                    ? 'ABC-1234'
-                    : 'AE123KT'
-              }
+              placeholder={placaPlaceholder(vehicle.tipoPlaca)}
               className="uppercase font-mono tracking-wider"
-              maxLength={vehicle.tipoPlaca === 'nacional' ? 8 : 12}
+              maxLength={placaMaxLength(vehicle.tipoPlaca)}
             />
           </Field>
 

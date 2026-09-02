@@ -110,12 +110,17 @@ interface GuardState {
   reason?: string;
 }
 
-/** Detecta si venimos de un flujo encadenado (bridge ya validó el token). */
-function isChainedFlow(): boolean {
+/**
+ * Entrada SSO iframe (?nexus_token=) o bridge (sid + token): mostrar la app al
+ * instante y verificar en background para no tapar WelcomeSplash.
+ */
+function isDeferredVerifyFlow(): boolean {
   try {
     const params = new URLSearchParams(window.location.search);
-    return Boolean(params.get('sid') && params.get('nexus_token'));
-  } catch { return false; }
+    return Boolean(params.get('nexus_token') || params.get('session_token'));
+  } catch {
+    return false;
+  }
 }
 
 export function NexusGuard({ children, recheckInterval = 30 }: NexusGuardProps) {
@@ -149,8 +154,8 @@ export function NexusGuard({ children, recheckInterval = 30 }: NexusGuardProps) 
 function NexusGuardVerified({ children, recheckInterval = 30 }: NexusGuardProps) {
   // Si venimos del bridge (hay sid + nexus_token), mostramos el contenido
   // de inmediato y verificamos en background para no interrumpir la UX.
-  const chained = isChainedFlow();
-  const [state, setState] = useState<GuardState>({ status: chained ? 'active' : 'loading' });
+  const deferredVerify = isDeferredVerifyFlow();
+  const [state, setState] = useState<GuardState>({ status: deferredVerify ? 'active' : 'loading' });
   const nexusApiUrl = resolveNexusApiUrl(import.meta.env.VITE_NEXUS_API_URL);
   const isMounted = useRef(true);
 

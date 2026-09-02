@@ -184,8 +184,8 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     const carnetBinacional =
       docType === 'certificado'
       && !ocrResult.ocrFailed
-      && (ocrResult.fields?.tipoCarnet === 'binacional'
-        || ocrResult.fields?.tipoPlaca === 'binacional');
+      && ocrResult.fields?.tipoCarnet === 'binacional'
+      && ocrResult.fields?.tipoPlaca === 'binacional';
     return res.status(200).json({
       success: true,
       message: ocrResult.ocrFailed

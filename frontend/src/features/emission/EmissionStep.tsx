@@ -1,4 +1,4 @@
-﻿import { Fragment, useState, useRef } from 'react';
+import { Fragment, useState, useRef } from 'react';
 import { useWizardStore } from '../../store/wizardStore';
 import { Field, Input, Select, Textarea } from '../../components/ui/FormField';
 import { IdentityInput } from '../../components/ui/IdentityInput';
@@ -100,12 +100,12 @@ function onlyLetters(v: string): string {
 export function EmissionStep() {
   const {
     tomador, setTomador,
-    sameInsured, setSameInsured,
     asegurado, setAsegurado,
     differentPayer, setDifferentPayer,
     pagador, setPagador,
     hasBeneficiary, setHasBeneficiary,
     beneficiario, setBeneficiario,
+    titularFromCarnet,
   } = useWizardStore();
 
   const catalogs = useCatalogs();
@@ -182,8 +182,8 @@ export function EmissionStep() {
       e.direccion = 'La dirección no puede superar 200 caracteres';
     }
 
-    // ── Asegurado (solo si está habilitado) ───────────────────────────────
-    if (!sameInsured) {
+    // ── Titular de la póliza (solo si carnet detectó persona distinta) ─────
+    if (titularFromCarnet) {
       if (req(asegurado.nombre))         e.aseg_nombre         = 'El nombre es obligatorio';
       if (req(asegurado.apellido))       e.aseg_apellido       = 'El apellido es obligatorio';
       if (req(asegurado.identificacion)) e.aseg_identificacion = 'La identificación es obligatoria';
@@ -517,51 +517,76 @@ export function EmissionStep() {
           )}
         </SectionCard>
 
-        {/* Asegurado — oculto a pedido del cliente. En la práctica el tomador
-            siempre es el asegurado. Conservamos el código para reactivar a futuro
-            sin volver a escribirlo (mismo patrón que "Beneficiario" más abajo). */}
-        {false && (
+        {/* Titular de la póliza — visible solo cuando el carnet del vehículo
+            pertenece a una persona distinta al tomador (detectado por OCR).
+            Los datos de cédula + nombre vienen precargados del certificado;
+            los campos faltantes se habilitan para llenado manual. */}
+        {titularFromCarnet && (
         <SectionCard
           Icon={UserPlus}
-          title="¿El seguro es para ti?"
-          description="El seguro puede ser para ti o para otra persona. Aquí lo defines."
+          title="Titular de la póliza (propietario del vehículo)"
+          description="El carnet del vehículo está a nombre de otra persona. Completa sus datos para emitir la póliza."
+          statusLabel="Carnet diferente"
+          statusTone="warning"
         >
-          <ToggleSwitch
-            checked={sameInsured}
-            onChange={setSameInsured}
-            label="Sí, el seguro es para mí"
-            description="Usaremos los datos que ya llenaste arriba. No hay nada más que hacer en esta sección."
-          />
-
-          {!sameInsured && (
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
-              <Field label="Nombre *" error={errors.aseg_nombre}>
-                <Input
-                  value={asegurado.nombre}
-                  onChange={(e) => setAsegurado({ nombre: onlyLetters(e.target.value) })}
-                  placeholder="Nombre de la otra persona"
-                />
-              </Field>
-              <Field label="Apellido *" error={errors.aseg_apellido}>
-                <Input
-                  value={asegurado.apellido}
-                  onChange={(e) => setAsegurado({ apellido: onlyLetters(e.target.value) })}
-                  placeholder="Apellido de la otra persona"
-                />
-              </Field>
-              <Field label="Cédula o documento *" error={errors.aseg_identificacion}>
-                <Input
-                  value={asegurado.identificacion}
-                  onChange={(e) => setAsegurado({ identificacion: e.target.value.replace(/[^0-9A-Za-z]/g, '') })}
-                  placeholder="Número de identificación"
-                  inputMode="numeric"
-                />
-              </Field>
-              <Field label="Fecha de nacimiento">
-                <Input value={asegurado.fechaNac ?? ''} onChange={(e) => setAsegurado({ fechaNac: e.target.value })} type="date" />
-              </Field>
-            </div>
-          )}
+          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-800 leading-relaxed">
+            <strong>¿Por qué aparece esta sección?</strong> La cédula/licencia escaneada
+            ({tomador.tipoDoc}-{tomador.identificacion}) pertenece al tomador, pero el
+            certificado del vehículo está registrado a nombre de otra persona.
+            El tomador contrata la póliza, pero el titular del carnet figura como
+            propietario del vehículo asegurado. Completa los datos faltantes.
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Identificación del titular *">
+              <IdentityInput
+                tipoDoc={asegurado.tipoDoc ?? 'V'}
+                identificacion={asegurado.identificacion}
+                onTipoDocChange={(v) => setAsegurado({ tipoDoc: v })}
+                onIdentificacionChange={(v) => setAsegurado({ identificacion: v })}
+              />
+            </Field>
+            <Field label="Nombre *">
+              <Input
+                value={asegurado.nombre}
+                onChange={(e) => setAsegurado({ nombre: onlyLetters(e.target.value) })}
+                placeholder="Nombre del propietario del vehículo"
+              />
+            </Field>
+            <Field label="Apellido *">
+              <Input
+                value={asegurado.apellido}
+                onChange={(e) => setAsegurado({ apellido: onlyLetters(e.target.value) })}
+                placeholder="Apellido"
+              />
+            </Field>
+            <Field label="Fecha de nacimiento">
+              <Input
+                value={asegurado.fechaNac ?? ''}
+                onChange={(e) => setAsegurado({ fechaNac: e.target.value })}
+                type="date"
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </Field>
+            <Field label="Teléfono" hint="Opcional · 11 dígitos">
+              <Input
+                value={asegurado.telefono ?? ''}
+                onChange={(e) => setAsegurado({ telefono: formatTelefono(e.target.value) })}
+                placeholder="04121234567"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
+              />
+            </Field>
+            <Field label="Correo electrónico" hint="Opcional">
+              <Input
+                value={asegurado.email ?? ''}
+                onChange={(e) => setAsegurado({ email: e.target.value })}
+                placeholder="correo@ejemplo.com"
+                type="email"
+                inputMode="email"
+              />
+            </Field>
+          </div>
         </SectionCard>
         )}
 

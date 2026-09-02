@@ -1,4 +1,11 @@
-export type DocType = 'cedula' | 'licencia' | 'certificado' | 'rif' | 'pasaporte';
+export type DocType =
+  | 'cedula'
+  | 'cedula_titular'
+  | 'cedula_beneficiario'
+  | 'licencia'
+  | 'certificado'
+  | 'rif'
+  | 'pasaporte';
 
 export type { DiligenciaState, TipoDiligencia } from '../lib/diligencia';
 
@@ -88,6 +95,7 @@ export type PersonData = {
   tipoDoc?: string;
   fechaNac?: string;
   parentesco?: string;
+  pporcen?: number;
   licencia?: string;
   relacion?: string;
   telefono?: string;
@@ -214,4 +222,13 @@ export interface WizardState {
   carnetBinacionalMode: boolean;
   /** Circular SAA-02-1079-2026 — clasificación DDS/DDC y docs requeridos. */
   diligencia: import('../lib/diligencia').DiligenciaState | null;
+  /**
+   * true cuando la cédula/licencia y el carnet del vehículo pertenecen a personas
+   * distintas (detectado en OcrStep). En ese caso:
+   *   - tomador = datos de la cédula
+   *   - asegurado (titular de la póliza) = datos del carnet (precargados, editables)
+   *   - conductor habitual = datos de la licencia cuando cédula ≠ licencia
+   *   - sameInsured = false
+   */
+  titularFromCarnet: boolean;
 }

@@ -16,9 +16,18 @@ import {
 import {
   adjustDocsForBinacionalCarnet,
   isBinacionalCarnet,
+  isExtranjeroCarnet,
   resolveTipoPlacaFromCert,
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
+import { resolveOcrPersonRoles } from '../../lib/ocr-person-roles';
+import { isCedulaOcrSlot } from '../../lib/ocr-engine-doc';
+import { applyFuneralOcrCedulas } from '../../lib/funeral-ocr-apply';
+import {
+  formatDocumentoLabel,
+  inferTipoDocFromRaw,
+  normalizeIdentificacionDigits,
+} from '../../lib/identificacion';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
@@ -35,13 +44,117 @@ interface DocConfig {
   accent: string;
 }
 
+function MobileUploadActions({
+  onCamera,
+  onGallery,
+  variant = 'idle',
+}: {
+  onCamera: () => void;
+  onGallery: () => void;
+  variant?: 'idle' | 'error';
+}) {
+  const btnBase =
+    'min-h-[48px] w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold touch-manipulation select-none active:scale-[0.98] transition-transform';
+
+  return (
+    <div
+      className="sm:hidden px-4 pb-4 pt-2 border-t border-slate-100/80 bg-white/60"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2.5 w-full">
+        <button
+          data-upload-btn
+          type="button"
+          onClick={onCamera}
+          className={`${btnBase} bg-indigo-600 text-white shadow-[0_8px_20px_rgba(15,26,90,0.28)]`}
+        >
+          <Camera size={18} strokeWidth={2.2} />
+          Tomar foto
+        </button>
+        <button
+          data-upload-btn
+          type="button"
+          onClick={onGallery}
+          className={`${btnBase} bg-white border-2 border-indigo-200 text-indigo-800 shadow-sm`}
+        >
+          <Images size={18} strokeWidth={2.2} />
+          Elegir archivo
+        </button>
+      </div>
+      <p className={`text-center text-[0.65rem] mt-2 leading-relaxed ${variant === 'error' ? 'text-rose-600' : 'text-slate-500'}`}>
+        {variant === 'error'
+          ? 'Selecciona otra imagen o PDF e inténtalo de nuevo.'
+          : 'JPG · PNG · PDF · HEIC'}
+      </p>
+    </div>
+  );
+}
+
+/** Inputs ocultos pero activables en iOS / WebView (display:none a veces rompe el picker). */
+function HiddenFileInputs({
+  inputRef,
+  cameraRef,
+  onPick,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  cameraRef: React.RefObject<HTMLInputElement | null>;
+  onPick: (file: File) => void;
+}) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onPick(file);
+    e.target.value = '';
+  };
+
+  const hiddenInputClass =
+    'absolute left-0 top-0 h-px w-px overflow-hidden opacity-0 -z-10';
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,image/heic,image/heif,.pdf"
+        className={hiddenInputClass}
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleChange}
+      />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className={hiddenInputClass}
+        tabIndex={-1}
+        aria-hidden
+        onChange={handleChange}
+      />
+    </>
+  );
+}
+
 const DOCS: DocConfig[] = [
   {
     type: 'cedula',
-    label: 'Cédula de identidad',
-    description: 'Documento del tomador',
+    label: 'Cédula del tomador',
+    description: 'Quien paga la póliza',
     Icon: IdCard,
     accent: 'from-indigo-500 to-violet-500',
+  },
+  {
+    type: 'cedula_titular',
+    label: 'Cédula del titular',
+    description: 'Persona asegurada (funerario)',
+    Icon: IdCard,
+    accent: 'from-violet-500 to-fuchsia-500',
+  },
+  {
+    type: 'cedula_beneficiario',
+    label: 'Cédula del beneficiario',
+    description: 'Quien recibe el beneficio',
+    Icon: IdCard,
+    accent: 'from-fuchsia-500 to-rose-500',
   },
   {
     type: 'licencia',
@@ -90,7 +203,6 @@ function UploadDocCard({
   const setDocState = useWizardStore((s) => s.setDocState);
   const setVehicle = useWizardStore((s) => s.setVehicle);
   const setTomador = useWizardStore((s) => s.setTomador);
-  const carnetBinacionalMode = useWizardStore((s) => s.carnetBinacionalMode);
   const setCarnetBinacionalMode = useWizardStore((s) => s.setCarnetBinacionalMode);
 
   const statusVariant = {
@@ -240,6 +352,38 @@ function UploadDocCard({
         hash: result.hash,
       });
 
+      if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
+        const rawId = result.ocr.identificacion as string | undefined;
+        const digits = normalizeIdentificacionDigits(rawId);
+        const tipoDoc =
+          (result.ocr.tipoDoc as string | undefined)
+          || inferTipoDocFromRaw(rawId)
+          || (digits ? 'V' : undefined);
+        setDocState(config.type, {
+          ocr: {
+            ...result.ocr,
+            identificacion: digits || undefined,
+            ...(tipoDoc ? { tipoDoc } : {}),
+          },
+        });
+      }
+
+      if (config.type === 'licencia' && result.ocr && typeof result.ocr === 'object') {
+        const rawId = result.ocr.identificacion as string | undefined;
+        const digits = normalizeIdentificacionDigits(rawId);
+        const tipoDoc =
+          (result.ocr.tipoDoc as string | undefined)
+          || inferTipoDocFromRaw(rawId)
+          || (digits ? 'V' : undefined);
+        setDocState(config.type, {
+          ocr: {
+            ...result.ocr,
+            identificacion: digits || undefined,
+            ...(tipoDoc ? { tipoDoc } : {}),
+          },
+        });
+      }
+
       if (config.type === 'cedula' && result.ocr?.tipoDoc) {
         const tipo = String(result.ocr.tipoDoc).trim().toUpperCase();
         const { setDiligencia } = useWizardStore.getState();
@@ -248,15 +392,24 @@ function UploadDocCard({
       }
 
       if (config.type === 'certificado') {
+        const certOcr = result.ocr as Parameters<typeof isBinacionalCarnet>[0];
         const binacional =
-          Boolean(result.carnetBinacional) || isBinacionalCarnet(result.ocr as Parameters<typeof isBinacionalCarnet>[0]);
+          Boolean(result.carnetBinacional) || isBinacionalCarnet(certOcr);
+        const extranjero = isExtranjeroCarnet(certOcr);
+        setCarnetBinacionalMode(binacional);
         if (binacional) {
-          setCarnetBinacionalMode(true);
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
+        } else if (extranjero) {
+          setVehicle({ tipoPlaca: 'extranjera' });
+        } else {
+          // ← CRÍTICO: fijar explícitamente 'nacional' para sobreescribir cualquier
+          // valor previo almacenado en sesión Nexus (ej. 'extranjera' de un intento anterior).
+          setVehicle({ tipoPlaca: 'nacional', tipoCarnet: certOcr?.tipoCarnet as 'nacional' | 'binacional' | undefined ?? 'nacional' });
         }
+
         const tomadorFromCert = extractTomadorFromCertificado(result.ocr);
         const cedulaId = useWizardStore.getState().documents.cedula?.ocr?.identificacion;
-        if (tomadorFromCert && !cedulaId) {
+        if (tomadorFromCert?.identificacion && !cedulaId) {
           setTomador(tomadorFromCert);
         }
       }
@@ -290,6 +443,9 @@ function UploadDocCard({
     if (file) handleFile(file);
   }
 
+  const openCamera = () => cameraRef.current?.click();
+  const openGallery = () => inputRef.current?.click();
+
   return (
     <div
       role={isClickable ? 'button' : undefined}
@@ -303,10 +459,10 @@ function UploadDocCard({
         ${isDone
           ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-white cursor-default'
           : currentStatus === 'error'
-          ? 'border-rose-300 bg-rose-50/30 cursor-pointer hover:border-rose-400 hover:-translate-y-0.5'
+          ? 'border-rose-300 bg-rose-50/30 sm:cursor-pointer sm:hover:border-rose-400 sm:hover:-translate-y-0.5'
           : isLoading
           ? 'border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 cursor-wait'
-          : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] hover:-translate-y-0.5 cursor-pointer active:scale-[0.99]'
+          : 'border-slate-200 bg-white sm:hover:border-indigo-400 sm:hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] sm:hover:-translate-y-0.5 sm:cursor-pointer sm:active:scale-[0.99]'
         }
       `}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -318,23 +474,7 @@ function UploadDocCard({
         <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br ${config.accent} opacity-[0.08] blur-2xl pointer-events-none`} />
       )}
 
-      {/* Input galería/archivo — acepta imágenes en cualquier formato + PDF */}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*,image/heic,image/heif,.pdf"
-        className="hidden"
-        onChange={(e) => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = ''; } }}
-      />
-      {/* Input cámara — iOS y Android: cámara trasera directamente */}
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = ''; } }}
-      />
+      <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between p-4 pb-0 relative">
@@ -389,29 +529,11 @@ function UploadDocCard({
               Click o arrastra aquí
             </span>
 
-            {/* Móvil: botones Cámara y Galería */}
-            <div className="flex sm:hidden gap-2 mt-1">
-              <button
-                data-upload-btn
-                type="button"
-                onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow active:scale-95 transition-transform"
-              >
-                <Camera size={13} />
-                Cámara
-              </button>
-              <button
-                data-upload-btn
-                type="button"
-                onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow active:scale-95 transition-transform"
-              >
-                <Images size={13} />
-                Galería
-              </button>
-            </div>
+            <span className="sm:hidden text-xs font-semibold text-slate-600 text-center px-2 pointer-events-none">
+              Usa los botones de abajo para subir
+            </span>
 
-            <span className="text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
+            <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
           </div>
         )}
 
@@ -450,15 +572,26 @@ function UploadDocCard({
         )}
 
         {currentStatus === 'error' && (
-          <div className="flex flex-col items-center gap-1.5 pointer-events-none">
-            <div className="w-14 h-14 rounded-2xl bg-rose-100 grid place-items-center">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 grid place-items-center pointer-events-none">
               <AlertCircle size={24} className="text-rose-500" strokeWidth={2.2} />
             </div>
-            <p className="text-xs font-bold text-rose-700">Error · Click para reintentar</p>
-            <p className="text-[0.65rem] text-rose-500 max-w-full truncate px-2 text-center">{docState.error}</p>
+            <p className="text-xs font-bold text-rose-700 pointer-events-none">
+              <span className="hidden sm:inline">Error · Click para reintentar</span>
+              <span className="sm:hidden">Error · Vuelve a intentar</span>
+            </p>
+            <p className="text-[0.65rem] text-rose-500 max-w-full px-2 text-center pointer-events-none break-words leading-snug">{docState.error}</p>
           </div>
         )}
       </div>
+
+      {(currentStatus === 'idle' || currentStatus === 'error') && (
+        <MobileUploadActions
+          variant={currentStatus === 'error' ? 'error' : 'idle'}
+          onCamera={openCamera}
+          onGallery={openGallery}
+        />
+      )}
 
       {/* Action footer (only when done) */}
       {isDone && (
@@ -489,20 +622,6 @@ function UploadDocCard({
             Cambiar
           </button>
           </div>
-          {config.type === 'certificado' && !carnetBinacionalMode && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setCarnetBinacionalMode(true);
-                setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
-                toast.success('Carnet colombiano', 'Cédula y licencia pasan a opcionales.', 2500);
-              }}
-              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors"
-            >
-              Es carnet colombiano / binacional
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -525,7 +644,9 @@ import {
   getOptionalDocs,
   getRequiredDocs,
   preClasificarDiligencia,
+  isDiligenciaDocType,
   resolveRcvOcrEntryDocs,
+  toDiligenciaDocTypes,
 } from '../../lib/diligencia';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
@@ -534,6 +655,7 @@ export function OcrStep() {
   const {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
+    titularFromCarnet, asegurado, hasDriver, conductor,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -556,16 +678,19 @@ export function OcrStep() {
     requiredDocs = getRequiredDocs(
       config as Record<string, unknown> | null,
       itipoDiligencia,
-      product.docs.required,
+      toDiligenciaDocTypes(product.docs.required),
     );
     optionalDocs = getOptionalDocs(
       config as Record<string, unknown> | null,
       itipoDiligencia,
-      product.docs.optional,
+      toDiligenciaDocTypes(product.docs.optional),
     );
   }
 
-  if (builderProduct) {
+  if (product.id === 'funerario' && !builderProduct) {
+    requiredDocs = ['cedula', 'cedula_titular', 'cedula_beneficiario'];
+    optionalDocs = [];
+  } else if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
     optionalDocs = slots.filter((d) => !d.required).map((d) => d.ocrType);
@@ -588,12 +713,12 @@ export function OcrStep() {
     if (product.id !== 'rcv') return;
     const hashes = Object.fromEntries(
       Object.entries(documents)
-        .filter(([, d]) => d?.hash)
+        .filter(([k, d]) => d?.hash && isDiligenciaDocType(k))
         .map(([k, d]) => [k, d!.hash!]),
     );
     setDiligencia({
       itipoDiligencia,
-      documentosRequeridos: effectiveRequired,
+      documentosRequeridos: toDiligenciaDocTypes(effectiveRequired),
       documentHashes: hashes,
       clasificadoEn: 'ocr',
     });
@@ -621,16 +746,11 @@ export function OcrStep() {
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
         : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4';
 
-  const certOcr = hasVehicle ? documents.certificado?.ocr : undefined;
-
-  useEffect(() => {
-    if (!hasVehicle || !certOcr || documents.certificado?.status !== 'done') return;
-    if (!isBinacionalCarnet(certOcr)) return;
-    setVehicle({ tipoPlaca: 'binacional' });
-  }, [hasVehicle, certOcr, documents.certificado?.status, setVehicle]);
-
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
+      if (product.id === 'funerario') {
+        applyFuneralOcrCedulas();
+      }
       const cedula = documents.cedula.ocr;
       if (cedula?.nombre || cedula?.identificacion) {
         // El OCR de Gemini devuelve "Soltero(a)" / "Femenino" pero el catálogo
@@ -641,8 +761,8 @@ export function OcrStep() {
         setTomador({
           nombre: cedula.nombre ?? '',
           apellido: cedula.apellido ?? '',
-          identificacion: cedula.identificacion ?? '',
-          tipoDoc: cedula.tipoDoc ?? 'V',
+          identificacion: normalizeIdentificacionDigits(cedula.identificacion),
+          tipoDoc: cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.identificacion) ?? 'V',
           fechaNac: cedula.fechaNacimiento ?? '',
           sexo: matchCatalog(cedula.sexo, sexoOpts),
           estadoCivil: matchCatalog(cedula.estadoCivil, ecOpts),
@@ -654,7 +774,7 @@ export function OcrStep() {
       if (cert) {
         if (!cedula?.identificacion && !cedula?.nombre) {
           const tomadorFromCert = extractTomadorFromCertificado(cert);
-          if (tomadorFromCert) setTomador(tomadorFromCert);
+          if (tomadorFromCert?.identificacion) setTomador(tomadorFromCert);
         }
         setVehicle({
           placa: cert.placa ?? '',
@@ -668,7 +788,23 @@ export function OcrStep() {
           tipoCarnet: cert.tipoCarnet,
           tipoPlaca: resolveTipoPlacaFromCert(cert),
         });
+
       }
+
+      if (hasVehicle) {
+        // ── Titular carnet + conductor habitual (licencia ≠ cédula y ≠ carnet) ──
+        const personRoles = resolveOcrPersonRoles(cedula, cert, documents.licencia?.ocr);
+        useWizardStore.getState().setSameInsured(personRoles.sameInsured);
+        useWizardStore.getState().setTitularFromCarnet(personRoles.titularFromCarnet);
+        if (personRoles.asegurado) {
+          useWizardStore.getState().setAsegurado(personRoles.asegurado);
+        }
+        useWizardStore.getState().setHasDriver(personRoles.hasDriver);
+        if (personRoles.hasDriver && personRoles.conductor) {
+          useWizardStore.getState().setConductor(personRoles.conductor);
+        }
+      }
+
       setOcrDone(true);
     }
   }, [
@@ -677,12 +813,14 @@ export function OcrStep() {
     hasVehicle,
     documents.cedula.ocr,
     documents.certificado.ocr,
+    documents.licencia.ocr,
     catalogs.sexos,
     catalogs.estadosCivil,
     setTomador,
     setVehicle,
     setOcrDone,
   ]);
+
 
   // Re-sincronización tardía: si los catálogos llegan DESPUÉS de aplicar el OCR
   // normaliza los valores del tomador contra las opciones reales del Valrep.
@@ -769,56 +907,146 @@ export function OcrStep() {
       </div>
 
       {/* OCR success banner */}
-      {allRequiredDone && (
-        <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">
-          {/* Decorative bg */}
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-fuchsia-300/15 blur-3xl pointer-events-none" />
+      {allRequiredDone && (() => {
+        // ── Datos tomador (cédula/licencia) ──────────────────────────────────
+        const fromCert = hasVehicle
+          ? extractTomadorFromCertificado(documents.certificado?.ocr)
+          : null;
+        const nombre = documents.cedula.ocr?.nombre || tomador.nombre || fromCert?.nombre || '';
+        const apellido = documents.cedula.ocr?.apellido || tomador.apellido || fromCert?.apellido || '';
+        const rawId = documents.cedula.ocr?.identificacion || tomador.identificacion || fromCert?.identificacion;
+        const identificacion = normalizeIdentificacionDigits(rawId);
+        const tipoDoc =
+          documents.cedula.ocr?.tipoDoc
+          || tomador.tipoDoc
+          || fromCert?.tipoDoc
+          || inferTipoDocFromRaw(rawId)
+          || (identificacion ? 'V' : '');
+        const documento = formatDocumentoLabel(identificacion, tipoDoc);
+        const placa = documents.certificado?.ocr?.placa ?? '';
 
-          <div className="relative p-5">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md grid place-items-center flex-shrink-0 ring-1 ring-white/20">
-                <Sparkles size={18} className="text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-display font-black text-base flex items-center gap-2">
-                  Datos detectados automáticamente
-                  <span className="text-[0.6rem] font-bold bg-white/20 backdrop-blur px-2 py-0.5 rounded-full tracking-wider">
-                    OCR · IA
+        // ── Datos propietario del carnet (si hay discrepancia) ───────────────
+        const docCarnet = asegurado.identificacion
+          ? formatDocumentoLabel(asegurado.identificacion, asegurado.tipoDoc ?? 'V')
+          : '';
+
+        const docConductor = conductor.identificacion
+          ? formatDocumentoLabel(conductor.identificacion, conductor.tipoDoc ?? 'V')
+          : '';
+        const multiPersonas = titularFromCarnet || hasDriver;
+        const personasCount = 1 + (titularFromCarnet ? 1 : 0) + (hasDriver ? 1 : 0);
+        const bannerHint = titularFromCarnet && hasDriver
+          ? 'Cédula, carnet y licencia son de personas distintas. Se separan tomador, titular y conductor habitual.'
+          : titularFromCarnet
+            ? 'El carnet del vehículo pertenece a una persona distinta. Se separan tomador y titular.'
+            : hasDriver
+              ? 'La licencia pertenece a otra persona. Se precargará como conductor habitual en el paso del vehículo.'
+              : 'Hemos precargado la información en el siguiente paso. Podrás revisarla y editarla si es necesario.';
+
+        // ── Chip genérico ────────────────────────────────────────────────────
+        const Chip = ({
+          label, value, color = 'white',
+        }: { label: string; value?: string; color?: 'white' | 'amber' }) => value ? (
+          <div className={
+            `rounded-xl p-3 border animate-fade-in ${
+              color === 'amber'
+                ? 'bg-amber-400/20 border-amber-300/30'
+                : 'bg-white/12 backdrop-blur-sm border-white/15'
+            }`
+          }>
+            <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
+            <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
+          </div>
+        ) : null;
+
+        return (
+          <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">
+            {/* Decorative bg */}
+            <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-fuchsia-300/15 blur-3xl pointer-events-none" />
+
+            <div className="relative p-5">
+              {/* Header */}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-md grid place-items-center flex-shrink-0 ring-1 ring-white/20">
+                  <Sparkles size={18} className="text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display font-black text-base flex items-center gap-2">
+                    Datos detectados automáticamente
+                    <span className="text-[0.6rem] font-bold bg-white/20 backdrop-blur px-2 py-0.5 rounded-full tracking-wider">
+                      OCR · IA
+                    </span>
+                  </p>
+                  <p className="text-xs text-indigo-100 mt-0.5 leading-relaxed">
+                    {bannerHint}
+                  </p>
+                </div>
+                {multiPersonas && (
+                  <span className="flex-shrink-0 text-[0.6rem] font-bold bg-amber-400/80 text-amber-950 px-2 py-1 rounded-full tracking-wider">
+                    {personasCount} personas
                   </span>
-                </p>
-                <p className="text-xs text-indigo-100 mt-0.5 leading-relaxed">
-                  Hemos precargado la información en el siguiente paso. Podrás revisarla y editarla si es necesario.
-                </p>
+                )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { label: 'Nombre', value: documents.cedula.ocr?.nombre },
-                { label: 'Apellido', value: documents.cedula.ocr?.apellido },
-                { label: 'Documento', value: `${documents.cedula.ocr?.tipoDoc ?? 'V'}-${documents.cedula.ocr?.identificacion ?? ''}` },
-                hasVehicle
-                  ? { label: 'Placa', value: documents.certificado.ocr?.placa }
-                  : { label: 'Fecha nac.', value: documents.cedula.ocr?.fechaNacimiento },
-              ].map(({ label, value }, idx) =>
-                value ? (
-                  <div
-                    key={label}
-                    className="bg-white/12 backdrop-blur-sm rounded-xl p-3 border border-white/15 animate-fade-in"
-                    style={{ animationDelay: `${idx * 80}ms` }}
-                  >
-                    <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">
-                      {label}
+              {multiPersonas ? (
+                <div className={`grid grid-cols-1 gap-3 ${hasDriver && titularFromCarnet ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                  <div className="rounded-xl bg-white/10 border border-white/20 p-3">
+                    <p className="text-[0.65rem] font-black uppercase tracking-widest text-indigo-200 mb-2.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 inline-block" />
+                      Tomador · Cédula
                     </p>
-                    <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Chip label="Nombre" value={nombre} />
+                      <Chip label="Apellido" value={apellido} />
+                      <Chip label="Documento" value={documento} />
+                      {hasVehicle && !titularFromCarnet && !hasDriver && <Chip label="Placa" value={placa} />}
+                    </div>
                   </div>
-                ) : null
+                  {titularFromCarnet && (
+                    <div className="rounded-xl bg-amber-400/15 border border-amber-300/25 p-3">
+                      <p className="text-[0.65rem] font-black uppercase tracking-widest text-amber-200 mb-2.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-300 inline-block" />
+                        Titular · Propietario del carnet
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Chip label="Nombre" value={asegurado.nombre || '—'} color="amber" />
+                        <Chip label="Apellido" value={asegurado.apellido || 'Completar'} color="amber" />
+                        <Chip label="Documento" value={docCarnet || '—'} color="amber" />
+                        {hasVehicle && <Chip label="Placa" value={placa} color="amber" />}
+                      </div>
+                    </div>
+                  )}
+                  {hasDriver && (
+                    <div className="rounded-xl bg-violet-400/15 border border-violet-300/25 p-3">
+                      <p className="text-[0.65rem] font-black uppercase tracking-widest text-violet-200 mb-2.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-300 inline-block" />
+                        Conductor habitual · Licencia
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Chip label="Nombre" value={conductor.nombre || '—'} />
+                        <Chip label="Apellido" value={conductor.apellido || 'Completar'} />
+                        <Chip label="Documento" value={docConductor || '—'} />
+                        <Chip label="Licencia" value={conductor.licencia || documents.licencia.ocr?.numeroLicencia} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ── Una fila: flujo normal ── */
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Chip label="Nombre" value={nombre} />
+                  <Chip label="Apellido" value={apellido} />
+                  <Chip label="Documento" value={documento} />
+                  {hasVehicle
+                    ? <Chip label="Placa" value={placa} />
+                    : <Chip label="Fecha nac." value={documents.cedula.ocr?.fechaNacimiento} />}
+                </div>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Preview modal */}
       <DocumentPreviewModal

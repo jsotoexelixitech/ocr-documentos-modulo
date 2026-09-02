@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type { DocType, OcrResult, DocumentFile } from '../types';
+import { toOcrEngineDocType } from './ocr-engine-doc';
 import { moduleApiBase, resolveUploadFileUrl } from './app-base';
 
 const api = axios.create({ baseURL: moduleApiBase() });
@@ -67,7 +68,7 @@ export async function uploadDocument(
 ): Promise<UploadResponse> {
   const form = new FormData();
   form.append('file', file);
-  form.append('docType', docType);
+  form.append('docType', toOcrEngineDocType(docType));
 
   try {
     const response = await api.post<UploadResponse>('/documents/upload', form, {
@@ -189,8 +190,18 @@ export class PolicyEmitError extends Error {
 }
 
 export async function emitPolicy(payload: EmitPolicyPayload): Promise<EmitPolicyResponse> {
+  const cleanPayload = JSON.parse(JSON.stringify(payload));
+  if (cleanPayload.state) {
+    const s = cleanPayload.state;
+    if (s.hasBeneficiary === false) delete s.beneficiario;
+    if (s.differentPayer === false) delete s.pagador;
+    if (s.hasDriver === false) delete s.conductor;
+    // Si el asegurado es el mismo tomador, no enviamos el objeto asegurado vacío
+    if (s.sameInsured === true && !s.titularFromCarnet) delete s.asegurado;
+  }
+
   try {
-    const response = await api.post<EmitPolicyResponse>('/policies/emit', payload);
+    const response = await api.post<EmitPolicyResponse>('/policies/emit', cleanPayload);
     return response.data;
   } catch (err) {
     const axErr = err as AxiosError<{

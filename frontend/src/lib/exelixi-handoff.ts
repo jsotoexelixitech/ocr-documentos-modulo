@@ -1,11 +1,19 @@
-import type { DocType, DocumentState } from '../types';
+import type { DocType, DocumentState, PersonData } from '../types';
 import type { BuilderCatalogProduct } from '../types/builder-catalog';
 import type { DiligenciaState } from './diligencia';
-import { persistBuilderProduct } from './builder-catalog';
+import { persistBuilderProduct, useBuilderCatalog } from './builder-catalog';
+import { getProductId } from './product';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
 
-export type OcrDocType = 'cedula' | 'licencia' | 'certificado' | 'rif' | 'pasaporte';
+export type OcrDocType =
+  | 'cedula'
+  | 'cedula_titular'
+  | 'cedula_beneficiario'
+  | 'licencia'
+  | 'certificado'
+  | 'rif'
+  | 'pasaporte';
 
 export interface OcrFields {
   nombre?: string;
@@ -29,6 +37,7 @@ export interface OcrFields {
   fechaNacimiento?: string;
   sexo?: string;
   estadoCivil?: string;
+  numeroLicencia?: string;
   propietario?: string;
   identificacionPropietario?: string;
   tipoDocPropietario?: string;
@@ -42,6 +51,10 @@ export interface ExelixiOcrHandoff {
   documentosRequeridos?: DocType[];
   documentHashes?: Partial<Record<DocType, string>>;
   diligencia?: DiligenciaState | null;
+  hasDriver?: boolean;
+  conductor?: Partial<PersonData>;
+  sameInsured?: boolean;
+  asegurado?: Partial<PersonData>;
   savedAt: number;
 }
 
@@ -55,9 +68,23 @@ export function buildOcrHandoff(
   documents: Record<DocType, DocumentState>,
   product?: BuilderCatalogProduct,
   diligencia?: DiligenciaState | null,
+  personRoles?: {
+    hasDriver?: boolean;
+    conductor?: Partial<PersonData>;
+    sameInsured?: boolean;
+    asegurado?: Partial<PersonData>;
+  },
 ): ExelixiOcrHandoff {
   const ocrData: Partial<Record<OcrDocType, OcrFields>> = {};
-  const types: OcrDocType[] = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte'];
+  const types: OcrDocType[] = [
+    'cedula',
+    'cedula_titular',
+    'cedula_beneficiario',
+    'licencia',
+    'certificado',
+    'rif',
+    'pasaporte',
+  ];
   const documentHashes: Partial<Record<DocType, string>> = {};
 
   for (const type of types) {
@@ -74,6 +101,10 @@ export function buildOcrHandoff(
     documentosRequeridos: diligencia?.documentosRequeridos,
     documentHashes,
     diligencia: diligencia ?? null,
+    hasDriver: personRoles?.hasDriver,
+    conductor: personRoles?.conductor,
+    sameInsured: personRoles?.sameInsured,
+    asegurado: personRoles?.asegurado,
     savedAt: Date.now(),
   };
 }
@@ -104,6 +135,10 @@ function isLocalAbsoluteUrl(value: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/i.test(value);
 }
 
+function isProductionAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) && !isLocalAbsoluteUrl(value);
+}
+
 /** Siguiente paso: módulo formulario (misma cadena que La Mundial, rama Exélixi). */
 export function getFormularioContinueUrl(): string {
   const configured = (import.meta.env.VITE_FORMULARIO_CONTINUE_BASE as string | undefined)?.replace(/\/$/, '') || '';
@@ -113,9 +148,13 @@ export function getFormularioContinueUrl(): string {
     base = configured && !configured.startsWith('/')
       ? configured
       : 'http://localhost:5182';
-  } else if (configured && !isLocalAbsoluteUrl(configured)
-    && (configured.startsWith('/') || configured.startsWith('.'))) {
-    base = configured;
+  } else if (configured) {
+    if (isProductionAbsoluteUrl(configured)) {
+      base = configured;
+    } else if (!isLocalAbsoluteUrl(configured)
+      && (configured.startsWith('/') || configured.startsWith('.'))) {
+      base = configured;
+    }
   }
 
   const params = new URLSearchParams();
@@ -142,7 +181,12 @@ export function getFormularioContinueUrl(): string {
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
   } catch {
-    params.set('product', 'rcv');
+    try {
+      const stored = sessionStorage.getItem('exelixi_product');
+      params.set('product', stored === 'funerario' ? 'funerario' : 'rcv');
+    } catch {
+      params.set('product', 'rcv');
+    }
   }
 
   return `${base}/?${params.toString()}`;
@@ -150,7 +194,8 @@ export function getFormularioContinueUrl(): string {
 
 export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
   persistOcrHandoff(handoff);
-  persistBuilderProduct(handoff.product ?? null);
+  const catalog = useBuilderCatalog();
+  if (catalog) persistBuilderProduct(handoff.product ?? null);
 
   if (isLocalHost()) {
     let url = getFormularioContinueUrl();
@@ -165,16 +210,35 @@ export function continueToFormularioModule(handoff: ExelixiOcrHandoff): void {
     return;
   }
 
+  const fallbackUrl = getFormularioContinueUrl();
+
   if (typeof window.__bridgeAdvance === 'function') {
+    const startHref = window.location.href;
+    const lmProduct =
+      handoff.productId === 'funerario' || getProductId() === 'funerario'
+        ? 'funerario'
+        : getProductId();
     void window.__bridgeAdvance({
-      exelixiCatalog: true,
-      builderProduct: handoff.product,
+      ...(catalog
+        ? { exelixiCatalogFlow: true, builderProduct: handoff.product }
+        : { product: lmProduct, exelixiCatalogFlow: false }),
       productId: handoff.productId,
+      hasDriver: handoff.hasDriver,
+      conductor: handoff.conductor,
+      sameInsured: handoff.sameInsured,
+      asegurado: handoff.asegurado,
+    }).catch(() => {
+      window.location.href = fallbackUrl;
     });
+    window.setTimeout(() => {
+      if (window.location.href === startHref) {
+        window.location.href = fallbackUrl;
+      }
+    }, 2500);
     return;
   }
 
-  window.location.href = getFormularioContinueUrl();
+  window.location.href = fallbackUrl;
 }
 
 /** @deprecated Usar continueToFormularioModule — product-builder es solo catálogo admin. */

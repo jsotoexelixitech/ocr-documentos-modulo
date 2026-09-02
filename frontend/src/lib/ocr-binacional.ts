@@ -1,4 +1,5 @@
 import type { DocType, DocumentState } from '../types';
+import { ocrIndicaPlacaExtranjera } from './placa-tipo';
 
 type CertOcr = {
   tipoCarnet?: string;
@@ -21,24 +22,35 @@ function sanitizeOcrString(value?: string | null): string {
   return s;
 }
 
-/** Placa INTT Venezuela (ej. AC124KB, AB12345) — no confundir con Colombia (SWK284). */
-function looksLikeVePlacaNacional(placa?: string | null): boolean {
-  const p = String(placa ?? '').replace(/[\s-]/g, '').toUpperCase();
-  if (!p) return false;
-  return /^[A-Z]{2}\d{3}[A-Z]{2}$/.test(p) || /^[A-Z]{2}\d{5}$/.test(p);
-}
-
 function looksLikeCoPlaca(placa?: string | null): boolean {
   const p = String(placa ?? '').replace(/[\s-]/g, '').toUpperCase();
   if (!p) return false;
-  return /^[A-Z]{3}\d{2,3}[A-Z]?$/.test(p);
+  // Colombia: AAA000 o AAA00A (letra al final obligatoria en formato moderno)
+  // Venezuela antigua: AB123 (2 letras + 3 digitos) o AC124KB (2+3+2 nuevo)
+  // Para evitar falsos positivos con VE viejas (ABC-123) exigimos letra al final.
+  return /^[A-Z]{3}\d{2,3}[A-Z]$/.test(p);
 }
 
-export function isBinacionalCarnet(cert?: CertOcr | null): boolean {
+/**
+ * Documento/vehículo colombiano (Licencia de Tránsito, placa CO) → extranjero.
+ * No confundir con binacional (vehículo venezolano hacia Colombia).
+ */
+export function isExtranjeroCarnet(cert?: CertOcr | null): boolean {
   if (!cert || typeof cert !== 'object') return false;
 
   const tipoRaw = String(cert.tipoCarnet || cert.tipo_carnet || '').toLowerCase().trim();
   const placaTipo = String(cert.tipoPlaca || '').toLowerCase().trim();
+
+  // Si el servidor ya lo clasificó explícitamente, confiamos en eso.
+  if (tipoRaw === 'nacional' || placaTipo === 'nacional') return false;
+  if (tipoRaw === 'binacional' || placaTipo === 'binacional') return false;
+
+  if (tipoRaw === 'extranjero') return true;
+  if (placaTipo === 'extranjera') return true;
+
+  const placaNorm = String(cert.placa || '').replace(/[\s-]/g, '').toUpperCase();
+  if (looksLikeCoPlaca(placaNorm)) return true;
+  if (tipoRaw === 'colombia' || tipoRaw === 'colombiano') return true;
 
   const hasLinea = Boolean(sanitizeOcrString(cert.linea));
   const hasCilindrada = Boolean(sanitizeOcrString(cert.cilindrada));
@@ -47,41 +59,31 @@ export function isBinacionalCarnet(cert?: CertOcr | null): boolean {
     sanitizeOcrString(cert.serialMotor) || sanitizeOcrString(cert.numeroMotor),
   );
 
-  const placaNorm = String(cert.placa || '').replace(/[\s-]/g, '').toUpperCase();
-  const looksVeNacional =
-    looksLikeVePlacaNacional(placaNorm)
-    && !hasLinea
-    && !hasCilindrada;
+  return hasLinea && (hasCilindrada || hasVin || hasSerialMotor);
+}
 
-  const isExplicitColombia =
-    tipoRaw === 'binacional'
-    || tipoRaw === 'colombia'
-    || tipoRaw === 'colombiano'
-    || placaTipo === 'binacional';
+/** Vehículo venezolano binacional hacia Colombia — no incluye docs/placas colombianas. */
+export function isBinacionalCarnet(cert?: CertOcr | null): boolean {
+  if (!cert || typeof cert !== 'object') return false;
+  if (isExtranjeroCarnet(cert)) return false;
 
-  if (isExplicitColombia) return true;
-
-  let isBinacional = hasLinea && (hasCilindrada || hasVin || hasSerialMotor);
-  if (isBinacional && looksVeNacional) isBinacional = false;
-  if (!isBinacional && looksLikeCoPlaca(placaNorm)) {
-    isBinacional = true;
-  }
-
-  return isBinacional;
+  const tipoRaw = String(cert.tipoCarnet || cert.tipo_carnet || '').toLowerCase().trim();
+  const placaTipo = String(cert.tipoPlaca || '').toLowerCase().trim();
+  return tipoRaw === 'binacional' || placaTipo === 'binacional';
 }
 
 export function resolveTipoPlacaFromCert(
   cert?: CertOcr | null,
 ): 'nacional' | 'extranjera' | 'binacional' {
   if (!cert) return 'nacional';
+  if (isExtranjeroCarnet(cert)) return 'extranjera';
   if (isBinacionalCarnet(cert)) return 'binacional';
-  const placaTipo = String(cert.tipoPlaca || '').toLowerCase();
-  if (placaTipo === 'extranjera') return 'extranjera';
+  if (ocrIndicaPlacaExtranjera(cert)) return 'extranjera';
   return 'nacional';
 }
 
 /**
- * Con carnet binacional (Colombia): solo certificado es obligatorio;
+ * Con carnet binacional (VE hacia CO): solo certificado es obligatorio;
  * cédula y licencia pasan a opcionales.
  */
 export function adjustDocsForBinacionalCarnet(

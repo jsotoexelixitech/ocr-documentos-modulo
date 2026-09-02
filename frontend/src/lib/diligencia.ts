@@ -4,6 +4,23 @@ export type TipoDiligencia = 'S' | 'C';
 
 export type DiligenciaDocType = 'cedula' | 'licencia' | 'certificado' | 'rif' | 'pasaporte';
 
+const DILIGENCIA_DOC_TYPES: readonly DiligenciaDocType[] = [
+  'cedula',
+  'licencia',
+  'certificado',
+  'rif',
+  'pasaporte',
+];
+
+export function isDiligenciaDocType(v: string): v is DiligenciaDocType {
+  return (DILIGENCIA_DOC_TYPES as readonly string[]).includes(v);
+}
+
+/** Filtra slots funerarios (`cedula_titular`, etc.) fuera del expediente RCV. */
+export function toDiligenciaDocTypes(docs: readonly string[] | undefined | null): DiligenciaDocType[] {
+  return (docs ?? []).filter(isDiligenciaDocType);
+}
+
 export interface DocConfigEntry {
   key: string;
   activo: boolean;
@@ -192,12 +209,13 @@ export const RCV_OCR_ENTRY_REQUIRED: DiligenciaDocType[] = [
  * DDS/DDC se confirma post-cotización en emisión (Circular SAA-02-1079).
  */
 export function resolveRcvOcrEntryDocs(fallback: {
-  required: DiligenciaDocType[];
-  optional: DiligenciaDocType[];
+  required: readonly string[];
+  optional: readonly string[];
 }): { required: DiligenciaDocType[]; optional: DiligenciaDocType[] } {
+  const required = toDiligenciaDocTypes(fallback.required);
   return {
-    required: fallback.required.length ? fallback.required : RCV_OCR_ENTRY_REQUIRED,
-    optional: fallback.optional,
+    required: required.length ? required : RCV_OCR_ENTRY_REQUIRED,
+    optional: toDiligenciaDocTypes(fallback.optional),
   };
 }
 

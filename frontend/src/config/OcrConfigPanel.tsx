@@ -32,7 +32,7 @@ interface ApiMapEntry {
   note?: string;
 }
 
-type Tab = 'documentos' | 'mapeador';
+type Tab = 'documentos' | 'mapeador' | 'visual';
 
 function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
@@ -63,6 +63,15 @@ export function OcrConfigPanel() {
   const [escaneoLoteBeneficiarios, setEscaneoLoteBeneficiarios] = useState(false);
   const [validarVigencia, setValidarVigencia] = useState(true);
   const [editingDocTemplate, setEditingDocTemplate] = useState<string | null>(null);
+  const [uiPerProductor, setUiPerProductor] = useState<Record<string, Record<string, boolean>>>({});
+  const [newProductorKey, setNewProductorKey] = useState('');
+
+  const UI_FLAG_LABELS = [
+    { key: 'hideHeader',      label: 'Ocultar cabecera (logo / marca)' },
+    { key: 'hideStepper',     label: 'Ocultar barra de pasos' },
+    { key: 'hideTrustBanner', label: 'Ocultar chips de confianza' },
+    { key: 'hideFooterBar',   label: 'Ocultar barra inferior (TLS / Continuar)' },
+  ];
 
   useEffect(() => {
     if (!config) return;
@@ -84,6 +93,7 @@ export function OcrConfigPanel() {
     setApiMap((config.apiMap as ApiMapEntry[]) ?? []);
     setEscaneoLoteBeneficiarios(config.escaneoLoteBeneficiarios ?? false);
     setValidarVigencia(config.validarVigencia ?? true);
+    setUiPerProductor((config.ui?.perProductor as Record<string, Record<string, boolean>>) ?? {});
   }, [config]);
 
   const updateDoc = useCallback((key: string, field: keyof DocField, val: any) => {
@@ -135,6 +145,7 @@ export function OcrConfigPanel() {
       apiMap,
       escaneoLoteBeneficiarios,
       validarVigencia,
+      ui: { perProductor: uiPerProductor },
     };
     if (producto === 'rcv') {
       payload.documentosPorDiligencia = {
@@ -192,7 +203,7 @@ export function OcrConfigPanel() {
           <div className="p-6 sm:p-8 lg:p-10">
             {/* Tabs */}
             <div className="flex flex-col sm:flex-row gap-2 mb-8 bg-slate-100/50 p-1.5 rounded-xl border border-slate-200/50 backdrop-blur-sm">
-              {([['documentos', 'Documentos', FileText], ['mapeador', 'Mapeador API', ArrowLeftRight]] as const).map(([t, label, Icon]) => (
+              {([['documentos', 'Documentos', FileText], ['mapeador', 'Mapeador API', ArrowLeftRight], ['visual', 'Visual SSO', Maximize]] as const).map(([t, label, Icon]) => (
                 <button
                   key={t}
                   onClick={() => setTab(t as Tab)}
@@ -364,6 +375,80 @@ export function OcrConfigPanel() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* ── TAB VISUAL SSO ── */}
+                {tab === 'visual' && (
+                  <div className="space-y-5">
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm text-indigo-700">
+                      <p className="font-bold mb-1">Control visual por productor SSO</p>
+                      <p className="text-xs text-indigo-500">La barra de pasos se oculta sola en cualquier invocación SSO / iframe. Estos toggles sirven para ocultar cabecera, chips o pie por <code>cproductor</code> adicional. El integrador no necesita cambiar nada.</p>
+                    </div>
+
+                    {/* Agregar productor */}
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 font-mono outline-none focus:border-indigo-400"
+                        placeholder="cproductor (ej: 123)"
+                        value={newProductorKey}
+                        onChange={e => setNewProductorKey(e.target.value.replace(/\D/g, ''))}
+                      />
+                      <button
+                        onClick={() => {
+                          const k = newProductorKey.trim();
+                          if (!k || uiPerProductor[k]) return;
+                          setUiPerProductor(prev => ({ ...prev, [k]: {} }));
+                          setNewProductorKey('');
+                          setSaved(false);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+
+                    {Object.keys(uiPerProductor).length === 0 && (
+                      <div className="text-center py-12 text-slate-400 text-sm rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
+                        Sin productores configurados. Agrega el <code>cproductor</code> para personalizar su UI.
+                      </div>
+                    )}
+
+                    {Object.entries(uiPerProductor).map(([cp, flags]) => (
+                      <div key={cp} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-slate-800 font-mono">Productor <span className="text-indigo-600">#{cp}</span></p>
+                          <button
+                            onClick={() => {
+                              const next = { ...uiPerProductor };
+                              delete next[cp];
+                              setUiPerProductor(next);
+                              setSaved(false);
+                            }}
+                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {UI_FLAG_LABELS.map(({ key, label }) => (
+                            <label key={key} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+                              <span className="text-sm text-slate-700">{label}</span>
+                              <Toggle
+                                on={!!flags[key]}
+                                onChange={v => {
+                                  setUiPerProductor(prev => ({
+                                    ...prev,
+                                    [cp]: { ...prev[cp], [key]: v },
+                                  }));
+                                  setSaved(false);
+                                }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>

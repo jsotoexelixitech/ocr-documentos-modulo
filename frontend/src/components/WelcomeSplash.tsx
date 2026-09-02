@@ -20,7 +20,7 @@ const BRAND = {
 function isChainedFlow(): boolean {
   try {
     const p = new URLSearchParams(window.location.search);
-    return Boolean(p.get('sid') && p.get('nexus_token'));
+    return Boolean(p.get('sid'));
   } catch {
     return false;
   }
@@ -66,7 +66,7 @@ export function WelcomeSplash() {
     <div
       role="dialog"
       aria-label="Bienvenida La Mundial de Seguros"
-      className="fixed inset-0 z-[200] grid place-items-center overflow-hidden"
+      className="fixed inset-0 z-[10000] grid place-items-center overflow-hidden"
       style={{
         animation: leaving ? `splashFadeOut ${FADE_MS}ms ease-out forwards` : undefined,
       }}

@@ -6,11 +6,13 @@ import { Toaster } from './components/Toaster';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { Button } from './components/ui/Button';
 import { OcrStep } from './features/ocr/OcrStep';
-import { getProductConfig } from './lib/product';
+import { getProductConfig, persistProductFromHints } from './lib/product';
 import { toast } from './store/toastStore';
 import { publicAsset } from './lib/app-base';
 import { ChevronRight, Sparkles, ShieldCheck, CheckCircle2, ScanLine, Lock } from 'lucide-react';
 import { useEffect } from 'react';
+import { applyMetadataFromNexusToken } from './lib/nexus-token-client';
+import { useUiFlags } from './lib/ui-flags';
 
 import { useProductConfig } from './hooks/useProductConfig';
 import { CatalogPickerStep } from './features/catalog/CatalogPickerStep';
@@ -22,18 +24,22 @@ import {
 } from './lib/builder-catalog';
 import { adjustDocsForBinacionalCarnet } from './lib/ocr-binacional';
 import { buildOcrHandoff, continueToFormularioModule } from './lib/exelixi-handoff';
+import { resolveOcrPersonRoles } from './lib/ocr-person-roles';
 import {
   getOptionalDocs,
   getRequiredDocs,
   preClasificarDiligencia,
   resolveRcvOcrEntryDocs,
+  toDiligenciaDocTypes,
 } from './lib/diligencia';
 import type { DocType } from './types';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 const DOC_LABELS: Record<string, string> = {
-  cedula: 'cédula',
+  cedula: 'cédula del tomador',
+  cedula_titular: 'cédula del titular',
+  cedula_beneficiario: 'cédula del beneficiario',
   licencia: 'licencia',
   certificado: 'certificado',
   pasaporte: 'pasaporte',
@@ -41,6 +47,41 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 import { OcrConfigPanel } from './config/OcrConfigPanel';
+
+function MobileOcrContinueBar({
+  onContinue,
+  canContinue,
+  pendingHint,
+  hidden,
+}: {
+  onContinue: () => void;
+  canContinue: boolean;
+  pendingHint?: string;
+  hidden?: boolean;
+}) {
+  if (hidden) return null;
+
+  return (
+    <div className="md:hidden fixed bottom-0 inset-x-0 z-[60] border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(15,23,42,0.12)]">
+      {!canContinue && pendingHint && (
+        <p className="mb-2 text-center text-[0.68rem] font-medium leading-snug text-slate-500">
+          {pendingHint}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="primary"
+        size="lg"
+        className="w-full min-h-[52px] touch-manipulation btn-shine"
+        onClick={onContinue}
+        disabled={!canContinue}
+      >
+        Continuar
+        <ChevronRight size={16} />
+      </Button>
+    </div>
+  );
+}
 
 export default function App() {
   if (window.location.pathname === '/config') {
@@ -51,10 +92,18 @@ export default function App() {
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
+  const { hideHeader, hideStepper, hideTrustBanner, hideFooterBar } = useUiFlags(config);
   const showCatalogPicker = builderCatalogMode && !builderProduct;
 
-  // Interceptar SSO Delegation
+  // Interceptar SSO Delegation (nexus_token + legacy session_token)
   useEffect(() => {
+    applyMetadataFromNexusToken('nexus_access_token_ocr', (metadata) => {
+      setMetadataCanal(metadata);
+      if (metadata.product === 'funerario' || metadata.product === 'rcv') {
+        persistProductFromHints({ product: String(metadata.product) });
+      }
+    });
+
     const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get('session_token');
     
@@ -82,12 +131,33 @@ export default function App() {
   const isSuccess = step === 2;
 
   function advanceToFormulario() {
+    const state = useWizardStore.getState();
+    const roles = resolveOcrPersonRoles(
+      state.documents.cedula?.ocr,
+      state.documents.certificado?.ocr,
+      state.documents.licencia?.ocr,
+    );
+    if (roles.hasDriver && roles.conductor) {
+      state.setHasDriver(true);
+      state.setConductor(roles.conductor);
+    }
+    state.setSameInsured(roles.sameInsured);
+    state.setTitularFromCarnet(roles.titularFromCarnet);
+    if (roles.asegurado) {
+      state.setAsegurado(roles.asegurado);
+    }
     continueToFormularioModule(
       buildOcrHandoff(
         builderProduct?.id ?? product.id,
-        documents,
+        state.documents,
         builderProduct ?? undefined,
-        diligencia,
+        state.diligencia,
+        {
+          hasDriver: roles.hasDriver,
+          conductor: roles.conductor,
+          sameInsured: roles.sameInsured,
+          asegurado: roles.asegurado,
+        },
       ),
     );
   }
@@ -107,12 +177,12 @@ export default function App() {
       requiredDocs = getRequiredDocs(
         config as Record<string, unknown> | null,
         itipoDiligencia,
-        product.docs.required,
+        toDiligenciaDocTypes(product.docs.required),
       );
       optionalDocs = getOptionalDocs(
         config as Record<string, unknown> | null,
         itipoDiligencia,
-        product.docs.optional,
+        toDiligenciaDocTypes(product.docs.optional),
       );
     }
 
@@ -136,6 +206,11 @@ export default function App() {
       }
     }
 
+    if (product.id === 'funerario' && !builderProduct) {
+      requiredDocs = ['cedula', 'cedula_titular', 'cedula_beneficiario'];
+      optionalDocs = [];
+    }
+
     return adjustDocsForBinacionalCarnet(
       requiredDocs,
       optionalDocs,
@@ -144,6 +219,14 @@ export default function App() {
       carnetBinacionalMode,
     );
   }
+
+  const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
+  const canContinueOcr = effectiveRequiredDocs.every((d) => documents[d]?.status === 'done');
+  const pendingDocsHint = effectiveRequiredDocs
+    .filter((d) => documents[d]?.status !== 'done')
+    .map((d) => DOC_LABELS[d] ?? d)
+    .join(', ');
+  const ocrPendingHint = pendingDocsHint ? `Falta procesar: ${pendingDocsHint}` : undefined;
 
   function handleContinuar() {
     const { requiredDocs } = resolveEffectiveOcrDocs();
@@ -197,7 +280,12 @@ export default function App() {
                 <p className="text-xs text-slate-500">
                   Producto: <strong>{builderProduct?.commercialName}</strong>
                 </p>
-                <Button variant="primary" onClick={handleContinuar} className="min-w-[180px] btn-shine">
+                <Button
+                  variant="primary"
+                  onClick={handleContinuar}
+                  disabled={!canContinueOcr}
+                  className="min-w-[180px] btn-shine"
+                >
                   Continuar
                   <ChevronRight size={15} />
                 </Button>
@@ -238,12 +326,12 @@ export default function App() {
           )}
         </ExelixiOcrFlow>
         {!isSuccess && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden">
-            <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
-              Continuar
-              <ChevronRight size={15} />
-            </Button>
-          </div>
+          <MobileOcrContinueBar
+            hidden={hideFooterBar}
+            canContinue={canContinueOcr}
+            pendingHint={ocrPendingHint}
+            onContinue={handleContinuar}
+          />
         )}
       </>
     );
@@ -259,36 +347,37 @@ export default function App() {
       </div>
 
       {/* Barra de marca (desktop) */}
-      <header className="hidden lg:block sticky top-0 z-40">
-        <div className="glass-light border-b border-white/50">
-          <div className="max-w-5xl mx-auto px-10 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
-                <img
-                  src={publicAsset('logo-isotipo-transparente.png')}
-                  alt="La Mundial de Seguros"
-                  className="w-6 h-auto"
-                  draggable={false}
-                />
-              </div>
-              <div className="leading-tight">
-                <p className="font-wordmark text-lg text-[#091133]">
-                  La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
-                </p>
-                <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-slate-400">
-                  Suscripción digital
-                </p>
+      {!hideHeader && (
+        <header className="hidden lg:block sticky top-0 z-40">
+          <div className="glass-light border-b border-white/50">
+            <div className="max-w-5xl mx-auto px-10 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
+                  <img
+                    src={publicAsset('logo-isotipo-transparente.png')}
+                    alt="La Mundial de Seguros"
+                    className="w-6 h-auto"
+                    draggable={false}
+                  />
+                </div>
+                <div className="leading-tight">
+                  <p className="font-wordmark text-lg text-[#091133]">
+                    La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
+                  </p>
+                  <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-slate-400">
+                    Suscripción digital
+                  </p>
+                </div>
               </div>
             </div>
-
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <div>
-        <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-32 lg:pb-12">
+        <main className="flex-1 min-h-screen pt-[72px] lg:pt-8 px-4 sm:px-6 lg:px-10 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-12">
           <div className="max-w-5xl mx-auto">
-            <TopStepper />
+            {!hideStepper && <TopStepper />}
 
             {!isSuccess && (
               <header className="mb-8 animate-fade-in">
@@ -306,20 +395,22 @@ export default function App() {
                     </p>
 
                     {/* Chips de confianza */}
-                    <div className="mt-4 flex items-center gap-2 flex-wrap">
-                      <span className="chip">
-                        <ScanLine size={12} className="text-indigo-500" />
-                        Lectura OCR con IA
-                      </span>
-                      <span className="chip">
-                        <Lock size={12} className="text-emerald-500" />
-                        Datos cifrados
-                      </span>
-                      <span className="chip">
-                        <Sparkles size={12} className="text-fuchsia-500" />
-                        Precarga automática
-                      </span>
-                    </div>
+                    {!hideTrustBanner && (
+                      <div className="mt-4 flex items-center gap-2 flex-wrap">
+                        <span className="chip">
+                          <ScanLine size={12} className="text-indigo-500" />
+                          Lectura OCR con IA
+                        </span>
+                        <span className="chip">
+                          <Lock size={12} className="text-emerald-500" />
+                          Datos cifrados
+                        </span>
+                        <span className="chip">
+                          <Sparkles size={12} className="text-fuchsia-500" />
+                          Precarga automática
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                 </div>
@@ -355,13 +446,18 @@ export default function App() {
                 )}
               </div>
 
-              {!isSuccess && (
+              {!isSuccess && !hideFooterBar && (
                 <div className="hidden md:flex items-center justify-between gap-4 px-8 lg:px-10 py-5 border-t border-slate-100/80 bg-gradient-to-b from-slate-50/50 to-white/40 backdrop-blur-sm">
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <ShieldCheck size={13} className="text-emerald-500" />
                     <span className="font-medium">Cifrado de extremo a extremo · TLS 1.3</span>
                   </div>
-                  <Button variant="primary" onClick={handleContinuar} className="min-w-[180px] btn-shine">
+                  <Button
+                    variant="primary"
+                    onClick={handleContinuar}
+                    disabled={!canContinueOcr}
+                    className="min-w-[180px] btn-shine"
+                  >
                     Continuar
                     <ChevronRight size={15} />
                   </Button>
@@ -374,12 +470,12 @@ export default function App() {
       </div>
 
       {!isSuccess && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 py-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-          <Button variant="primary" className="w-full btn-shine" onClick={handleContinuar}>
-            Continuar
-            <ChevronRight size={15} />
-          </Button>
-        </div>
+        <MobileOcrContinueBar
+          hidden={hideFooterBar}
+          canContinue={canContinueOcr}
+          pendingHint={ocrPendingHint}
+          onContinue={handleContinuar}
+        />
       )}
     </div>
   );
