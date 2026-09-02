@@ -22,6 +22,10 @@ import { resolveNexusApiUrl } from '../nexus/nexus-core';
 import { canNavigateToStep, getDefaultRequiredDocs } from './wizard-navigation';
 import { getProductConfig } from './product';
 import { applyWizardStepFromUrl, defaultStepForModule, stepToModuleOrder } from './wizard-step';
+import {
+  enrichBridgePayloadForSave,
+  extractActorMetadataFromBridgeData,
+} from './sso-metadata';
 
 // ── Configuración por puerto (dev local) o hostname (HTTPS sslip.io) ───────
 const PORT_TO_ORDER: Record<string, number> = {
@@ -216,7 +220,7 @@ function makeBridge(): BridgeAPI {
       sessionStorage.getItem(getModuleTokenKey()) ||
       getNexusTokenFromUrl();
     if (nexusToken) out.nexus_token = nexusToken;
-    return out;
+    return enrichBridgePayloadForSave(out, getModuleTokenKey());
   };
 
   // Campos cuyo valor NO debe sobrescribirse durante la hidratación.
@@ -236,6 +240,15 @@ function makeBridge(): BridgeAPI {
     }
     const set = (useWizardStore as unknown as { setState: (p: Partial<Record<string, unknown>>) => void }).setState;
     set(filtered);
+
+    const store = useWizardStore.getState();
+    const canalMeta = extractActorMetadataFromBridgeData({
+      ...(store.metadataCanal || {}),
+      ...data,
+    });
+    if (Object.keys(canalMeta).length > 0) {
+      store.setMetadataCanal(canalMeta);
+    }
   };
 
   const hydrate = async () => {
