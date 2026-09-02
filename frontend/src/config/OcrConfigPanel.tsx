@@ -383,7 +383,7 @@ export function OcrConfigPanel() {
                   <div className="space-y-5">
                     <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm text-indigo-700">
                       <p className="font-bold mb-1">Control visual por productor SSO</p>
-                      <p className="text-xs text-indigo-500">Los productores que se conectan vía SSO (<code>cproductor</code> en el token) heredan estas preferencias automáticamente. El integrador no necesita cambiar nada.</p>
+                      <p className="text-xs text-indigo-500">La barra de pasos se oculta sola en cualquier invocación SSO / iframe. Estos toggles sirven para ocultar cabecera, chips o pie por <code>cproductor</code> adicional. El integrador no necesita cambiar nada.</p>
                     </div>
 
                     {/* Agregar productor */}
