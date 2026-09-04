@@ -3,6 +3,16 @@ import { getProductId } from './product';
 import { inferTipoDocFromRaw, normalizeIdentificacionDigits } from './identificacion';
 import type { OcrResult } from '../types';
 
+/** Cédula VE: DD/MM/YYYY → YYYY-MM-DD. ISO se deja igual. */
+function toIsoFechaNac(raw?: string | null): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (!m) return s;
+  return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
 function personFromOcr(ocr?: OcrResult | null) {
   if (!ocr) return null;
   const rawId = ocr.identificacion;
@@ -13,7 +23,7 @@ function personFromOcr(ocr?: OcrResult | null) {
     identificacion,
     nombre: ocr.nombre ?? '',
     apellido: ocr.apellido ?? '',
-    fechaNac: ocr.fechaNacimiento ?? '',
+    fechaNac: toIsoFechaNac(ocr.fechaNacimiento),
     sexo: ocr.sexo ?? '',
     estadoCivil: ocr.estadoCivil ?? '',
   };

@@ -150,6 +150,47 @@ function normalizeIdentificacionDigits(raw) {
   return String(raw ?? '').replace(/\D/g, '');
 }
 
+/**
+ * Fecha de nacimiento de cédula/licencia VE → YYYY-MM-DD.
+ * La cédula venezolana imprime F. NACIMIENTO como DD/MM/YYYY (08/10/1997 → 1997-10-08).
+ * No interpreta MM/DD. Descarta fechas futuras o con más de 120 años.
+ */
+function normalizeFechaNacimientoOcr(raw) {
+  const s = sanitizeOcrString(raw);
+  if (!s) return null;
+
+  let yyyy;
+  let mm;
+  let dd;
+  const iso = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  if (iso) {
+    yyyy = Number(iso[1]);
+    mm = Number(iso[2]);
+    dd = Number(iso[3]);
+  } else {
+    const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+    if (!dmy) return null;
+    dd = Number(dmy[1]);
+    mm = Number(dmy[2]);
+    yyyy = Number(dmy[3]);
+  }
+
+  if (!Number.isInteger(yyyy) || !Number.isInteger(mm) || !Number.isInteger(dd)) return null;
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  const dt = new Date(Date.UTC(yyyy, mm - 1, dd));
+  if (dt.getUTCFullYear() !== yyyy || dt.getUTCMonth() !== mm - 1 || dt.getUTCDate() !== dd) {
+    return null;
+  }
+  const now = new Date();
+  if (dt.getTime() > Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) {
+    return null;
+  }
+  const age = now.getUTCFullYear() - yyyy;
+  if (age > 120) return null;
+
+  return `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+}
+
 function isColombianIdentityDoc(fields) {
   if (!fields || typeof fields !== 'object') return false;
   const pais = String(fields.paisEmisor || fields.paisDocumento || '').toUpperCase();
@@ -201,6 +242,9 @@ function normalizeCedulaFields(fields) {
   delete fields.tituloDocumento;
   delete fields.nacionalidad;
   delete fields.numero;
+
+  const fechaNac = normalizeFechaNacimientoOcr(fields.fechaNacimiento);
+  fields.fechaNacimiento = fechaNac;
   return fields;
 }
 
@@ -212,6 +256,8 @@ function normalizeLicenciaFields(fields) {
   }
   delete fields.numero;
   delete fields.numeroDocumento;
+  const fechaNac = normalizeFechaNacimientoOcr(fields.fechaNacimiento);
+  fields.fechaNacimiento = fechaNac;
   return fields;
 }
 
@@ -547,7 +593,11 @@ const SCHEMAS = {
       },
       fechaNacimiento: {
         type: Type.STRING,
-        description: 'Fecha de nacimiento en formato YYYY-MM-DD',
+        description:
+          'SOLO el campo rotulado F. NACIMIENTO / FECHA DE NACIMIENTO. ' +
+          'Cedula VE: el impreso es DD/MM/YYYY (ej. 08/10/1997 → 1997-10-08). ' +
+          'NUNCA uses F. EXPEDICION, F. VENCIMIENTO ni un ano inventado. ' +
+          'Si no lees F. NACIMIENTO, null. Formato de salida YYYY-MM-DD.',
       },
       sexo: {
         type: Type.STRING,
@@ -584,7 +634,9 @@ const SCHEMAS = {
       },
       fechaNacimiento: {
         type: Type.STRING,
-        description: 'Fecha de nacimiento del titular en formato YYYY-MM-DD',
+        description:
+          'SOLO fecha de nacimiento del titular (no vencimiento). ' +
+          'VE: DD/MM/YYYY impreso → YYYY-MM-DD. Si no aparece, null.',
       },
       numeroLicencia: {
         type: Type.STRING,
@@ -732,7 +784,9 @@ const PROMPTS = {
     '=== Colombia === ' +
     'Header "REPUBLICA DE COLOMBIA" + "CEDULA DE CIUDADANIA". paisEmisor="CO", tipoDoc="E". ' +
     'apellido = campo APELLIDOS; nombre = campo NOMBRES; identificacion = NUMERO (solo digitos). ' +
-    'fechaNacimiento si aparece (DD-MM-YYYY o similar → YYYY-MM-DD). ' +
+    'fechaNacimiento = UNICAMENTE F. NACIMIENTO (VE: DD/MM/YYYY → YYYY-MM-DD). ' +
+    'Ejemplo: 08/10/1997 es 1997-10-08 (8 de octubre de 1997), NO 1997-08-10 ni otro ano. ' +
+    'IGNORA F. EXPEDICION y F. VENCIMIENTO. NUNCA inventes el ano (p. ej. 1945). ' +
     'El campo identificacion debe contener solo digitos. ' +
     'Para estadoCivil venezolano: S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)".',
   licencia:
